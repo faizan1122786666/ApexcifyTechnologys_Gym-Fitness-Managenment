@@ -16,6 +16,8 @@ import UserAvatar from '../../components/Common/UserAvatar';
 import { Plus, X, Search, MoreVertical } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { memberService, trainerService, classService, paymentService } from '../../services/api';
+import { toast } from 'react-toastify';
+
 
 // Fallback static data for dashboard stats (can be moved to backend later if API exists)
 const defaultStats = { totalMembers: 0, totalTrainers: 0, monthlyRevenue: 0, newSignups: 0 };
@@ -66,18 +68,48 @@ const MembersTab = ({ members, setMembers }) => {
       });
       const data = await res.json();
       if (data.success || res.status === 201) {
-         setMembers([...members, data.user || data.data || { ...formData, _id: Date.now().toString(), role: 'member' }]);
-         setShowModal(false);
-         setFormData({ name: '', email: '', password: 'member123', plan: 'Basic' });
-      } else {
-         alert(data.message || 'Failed to create member');
-      }
+          setMembers([...members, data.user || data.data || { ...formData, _id: data._id || Date.now().toString(), role: 'member' }]);
+          setShowModal(false);
+          setFormData({ name: '', email: '', password: '', plan: 'Basic' });
+          toast.success('Member created successfully!');
+       } else {
+          toast.error(data.message || 'Failed to create member');
+       }
     } catch (err) {
-      alert('Error connecting to backend.');
+      toast.error('Error connecting to backend.');
     } finally {
+
       setIsSubmitting(false);
     }
   };
+
+  const [editUser, setEditUser] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const { authService } = await import('../../services/api');
+      const res = await authService.adminUpdateUser(editUser._id, {
+        name: editUser.name,
+        email: editUser.email,
+        password: editUser.password,
+        role: 'member'
+      });
+      if (res.data) {
+        setMembers(members.map(m => m._id === editUser._id ? { ...m, ...res.data } : m));
+        setIsEditing(false);
+        setEditUser(null);
+        toast.success('Member updated successfully!');
+      }
+    } catch (err) {
+      toast.error('Failed to update member');
+    } finally {
+      setIsSubmitting(false);
+    }
+
+  };
+
 
   return (
     <div className="glass-card p-6">
@@ -98,10 +130,13 @@ const MembersTab = ({ members, setMembers }) => {
                 <p className="text-sm text-dark-400">{m.email}</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-               <span className="badge badge-success hidden sm:inline-block">{m.membership} Plan</span>
+            <div className="flex items-center gap-2">
+               <button onClick={() => { setEditUser({ ...m, password: '' }); setIsEditing(true); }} className="p-2 text-primary-400 hover:text-primary-300 transition-colors">
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+               </button>
                <button className="p-2 text-dark-400 hover:text-white transition-colors"><MoreVertical className="w-5 h-5" /></button>
             </div>
+
           </div>
         ))}
       </div>
@@ -116,15 +151,33 @@ const MembersTab = ({ members, setMembers }) => {
             <div className="space-y-4">
               <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" placeholder="John Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
               <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">Temporary Password</label><input type="password" className="input-field" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
               <div><label className="text-sm text-dark-300 block mb-1">Plan</label>
                 <select className="input-field" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}><option>Basic</option><option>Premium</option><option>Elite</option></select>
               </div>
               <button disabled={isSubmitting} onClick={handleCreateMember} className="btn-primary w-full mt-4">{isSubmitting ? 'Creating...' : 'Create Member'}</button>
             </div>
+
+          </div>
+        </div>
+      )}
+      {/* Edit Member Modal */}
+      {isEditing && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-md p-6 relative">
+            <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X className="w-5 h-5"/></button>
+            <h3 className="text-xl font-bold text-white mb-6">Edit Member / Reset Password</h3>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" value={editUser.name} onChange={e => setEditUser({...editUser, name: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" value={editUser.email} onChange={e => setEditUser({...editUser, email: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">New Password (leave blank to keep current)</label><input type="password" className="input-field" placeholder="••••••••" value={editUser.password} onChange={e => setEditUser({...editUser, password: e.target.value})} /></div>
+              <button disabled={isSubmitting} type="submit" className="btn-primary w-full mt-4">{isSubmitting ? 'Updating...' : 'Update Member'}</button>
+            </form>
           </div>
         </div>
       )}
     </div>
+
   );
 };
 
@@ -148,18 +201,48 @@ const TrainersTab = ({ trainers, setTrainers }) => {
       });
       const data = await res.json();
       if (data.success || res.status === 201) {
-         setTrainers([...trainers, data.user || data.data || { ...formData, _id: Date.now().toString(), role: 'trainer', rating: 5 }]);
-         setShowModal(false);
-         setFormData({ name: '', email: '', password: 'trainer123', specialization: '' });
-      } else {
-         alert(data.message || 'Failed to create trainer');
-      }
+          setTrainers([...trainers, data.user || data.data || { ...formData, _id: data._id || Date.now().toString(), role: 'trainer', rating: 5 }]);
+          setShowModal(false);
+          setFormData({ name: '', email: '', password: '', specialization: '' });
+          toast.success('Trainer created successfully!');
+       } else {
+          toast.error(data.message || 'Failed to create trainer');
+       }
     } catch (err) {
-      alert('Error connecting to backend.');
+      toast.error('Error connecting to backend.');
     } finally {
       setIsSubmitting(false);
     }
+
   };
+
+  const [editTrainer, setEditTrainer] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const { authService } = await import('../../services/api');
+      const res = await authService.adminUpdateUser(editTrainer._id, {
+        name: editTrainer.name,
+        email: editTrainer.email,
+        password: editTrainer.password,
+        role: 'trainer'
+      });
+      if (res.data) {
+        setTrainers(trainers.map(t => t._id === editTrainer._id ? { ...t, ...res.data } : t));
+        setIsEditing(false);
+        setEditTrainer(null);
+        toast.success('Trainer updated successfully!');
+      }
+    } catch (err) {
+      toast.error('Failed to update trainer');
+    } finally {
+      setIsSubmitting(false);
+    }
+
+  };
+
 
   return (
     <div>
@@ -171,7 +254,18 @@ const TrainersTab = ({ trainers, setTrainers }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-        {currentTrainers.map(t => <TrainerCard key={t.id} trainer={t} />)}
+        {currentTrainers.map(t => (
+          <div key={t._id} className="relative group">
+             <TrainerCard trainer={t} />
+             <button 
+               onClick={() => { setEditTrainer({ ...t, password: '' }); setIsEditing(true); }}
+               className="absolute top-2 right-2 p-2 bg-dark-900/80 rounded-full text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-primary-500 hover:text-white"
+             >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+             </button>
+          </div>
+        ))}
+
       </div>
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
@@ -184,8 +278,157 @@ const TrainersTab = ({ trainers, setTrainers }) => {
             <div className="space-y-4">
               <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" placeholder="Jane Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
               <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" placeholder="jane@fitnessdesk.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">Initial Password</label><input type="password" className="input-field" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
               <div><label className="text-sm text-dark-300 block mb-1">Specialization</label><input type="text" className="input-field" placeholder="e.g. Yoga & Pilates" value={formData.specialization} onChange={e => setFormData({...formData, specialization: e.target.value})} /></div>
+
               <button disabled={isSubmitting} onClick={handleCreateTrainer} className="btn-primary w-full mt-4">{isSubmitting ? 'Creating...' : 'Create Trainer'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Trainer Modal */}
+      {isEditing && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-md p-6 relative">
+            <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X className="w-5 h-5"/></button>
+            <h3 className="text-xl font-bold text-white mb-6">Edit Trainer / Reset Password</h3>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" value={editTrainer.name} onChange={e => setEditTrainer({...editTrainer, name: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" value={editTrainer.email} onChange={e => setEditTrainer({...editTrainer, email: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">New Password (leave blank to keep current)</label><input type="password" className="input-field" placeholder="••••••••" value={editTrainer.password} onChange={e => setEditTrainer({...editTrainer, password: e.target.value})} /></div>
+              <button disabled={isSubmitting} type="submit" className="btn-primary w-full mt-4">{isSubmitting ? 'Updating...' : 'Update Trainer'}</button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+
+  );
+};
+
+const ClassesTab = ({ classes, trainers, setClasses }) => {
+  const [showModal, setShowModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({ 
+    className: '', 
+    description: '', 
+    trainer: '', 
+    day: 'Monday', 
+    time: '09:00', 
+    capacity: 20, 
+    price: 0,
+    image: ''
+  });
+
+  const handleCreateClass = async () => {
+    if (!formData.className || !formData.trainer || !formData.description) {
+      alert('Please fill in all required fields');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await classService.create(formData);
+      if (res.data) {
+        setClasses([...classes, res.data]);
+        setShowModal(false);
+        setFormData({ className: '', description: '', trainer: '', day: 'Monday', time: '09:00', capacity: 20, price: 0, image: '' });
+        toast.success('Class scheduled successfully!');
+      }
+    } catch (err) {
+      toast.error('Failed to create class. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center bg-dark-900 shadow-xl p-4 rounded-xl border border-white/5">
+         <h2 className="text-xl font-bold text-white uppercase tracking-wider">Class Schedule & Management</h2>
+         <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2 !py-2 shadow-glow">
+            <Plus className="w-4 h-4" /> Add New Class
+         </button>
+      </div>
+
+      <ScheduleCalendar />
+      
+      <h2 className="text-xl font-bold text-white mb-6">Active Classes Directory</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {classes.length > 0 ? (
+          classes.map(c => <ClassCard key={c.id || c._id} classData={c} />)
+        ) : (
+          <div className="col-span-full py-12 text-center glass-card">
+            <p className="text-dark-500">No classes found. Start by adding one!</p>
+          </div>
+        )}
+      </div>
+
+      {/* Add Class Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex justify-center items-start p-4 animate-fade-in overflow-y-auto pt-20 pb-10">
+          <div className="glass-card w-full max-w-2xl p-6 md:p-8 animate-slide-up relative">
+
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white transition-colors">
+              <X className="w-6 h-6"/>
+            </button>
+            
+            <div className="mb-6">
+              <h3 className="text-2xl font-display font-bold text-white mb-1">Create New Class</h3>
+              <p className="text-dark-400 text-sm">Fill in the details below to schedule a new gym session.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Class Name</label>
+                <input type="text" className="input-field" placeholder="e.g. Advanced CrossFit" value={formData.className} onChange={e => setFormData({...formData, className: e.target.value})} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Detailed Description</label>
+                <textarea className="input-field min-h-[80px]" placeholder="What will members learn in this class?" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+              </div>
+              
+              <div>
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Assign Trainer</label>
+                <select className="input-field" value={formData.trainer} onChange={e => setFormData({...formData, trainer: e.target.value})}>
+                  <option value="">Select a Trainer</option>
+                  {trainers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Day of Week</label>
+                <select className="input-field" value={formData.day} onChange={e => setFormData({...formData, day: e.target.value})}>
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d}>{d}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Start Time</label>
+                <input type="time" className="input-field" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Class Capacity</label>
+                <input type="number" className="input-field" value={formData.capacity} onChange={e => setFormData({...formData, capacity: Number(e.target.value)})} />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Session Price ($)</label>
+                <input type="number" className="input-field" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Image URL (Optional)</label>
+                <input type="text" className="input-field" placeholder="https://..." value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} />
+              </div>
+            </div>
+
+            <div className="mt-8 flex gap-4">
+              <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
+              <button disabled={isSubmitting} onClick={handleCreateClass} className="btn-primary flex-1 shadow-glow">
+                {isSubmitting ? 'Creating...' : 'Create Class'}
+              </button>
             </div>
           </div>
         </div>
@@ -210,25 +453,26 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         const [membersRes, trainersRes, classesRes, paymentsRes] = await Promise.all([
-          memberService.getAll().catch(() => ({ data: { data: [] } })),
-          trainerService.getAll().catch(() => ({ data: { data: [] } })),
-          classService.getAll().catch(() => ({ data: { data: [] } })),
-          paymentService.getAll().catch(() => ({ data: { data: [] } }))
+          memberService.getAll().catch(() => ({ data: [] })),
+          trainerService.getAll().catch(() => ({ data: [] })),
+          classService.getAll().catch(() => ({ data: [] })),
+          paymentService.getAll().catch(() => ({ data: [] }))
         ]);
 
-        const loadedMembers = membersRes.data?.data || [];
-        const loadedTrainers = trainersRes.data?.data || [];
+        const loadedMembers = Array.isArray(membersRes.data) ? membersRes.data : [];
+        const loadedTrainers = Array.isArray(trainersRes.data) ? trainersRes.data : [];
+        const loadedClasses = Array.isArray(classesRes.data) ? classesRes.data : [];
+        const loadedPayments = Array.isArray(paymentsRes.data) ? paymentsRes.data : [];
 
         setMembers(loadedMembers);
         setTrainers(loadedTrainers);
-        setClasses(classesRes.data?.data || []);
-        setPayments(paymentsRes.data?.data || []);
+        setClasses(loadedClasses);
+        setPayments(loadedPayments);
         
-        // Compute basic stats organically
         setStats({
            totalMembers: loadedMembers.length,
            totalTrainers: loadedTrainers.length,
-           monthlyRevenue: 0, // Would be calculated from payments
+           monthlyRevenue: loadedPayments.reduce((acc, curr) => acc + (curr.amount || 0), 0),
            newSignups: loadedMembers.filter(m => new Date(m.createdAt) > new Date(Date.now() - 30*24*60*60*1000)).length || 0
         });
       } catch (error) {
@@ -249,7 +493,7 @@ const AdminDashboard = () => {
   }
 
   if (isLoading) {
-    return <div className="min-h-screen bg-dark-950 flex items-center justify-center text-primary-500">Loading Dashboard...</div>;
+    return <div className="min-h-screen bg-dark-950 flex items-center justify-center text-primary-500 font-bold text-xl uppercase tracking-widest animate-pulse">Loading FitnessDesk Admin...</div>;
   }
 
   return (
@@ -258,40 +502,41 @@ const AdminDashboard = () => {
       <div className="flex flex-1">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         {!sidebarOpen && (
-           <button onClick={() => setSidebarOpen(true)} className="fixed bottom-4 right-4 z-40 lg:hidden w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-white shadow-glow">
+           <button onClick={() => setSidebarOpen(true)} className="fixed bottom-4 right-4 z-40 lg:hidden w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center text-white shadow-glow hover:scale-110 transition-transform">
              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
            </button>
         )}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 lg:ml-64 transition-all duration-300">
           <div className="max-w-6xl mx-auto">
-            <header className="mb-8">
-              <h1 className="text-3xl font-display font-bold text-white mb-2">Admin Dashboard</h1>
-              <p className="text-dark-400">Welcome back, {user.name} 👋</p>
+            <header className="mb-8 p-6 glass-card border-l-4 border-l-primary-500">
+              <h1 className="text-3xl font-display font-bold text-white mb-2 tracking-tight">Admin Control Center</h1>
+              <p className="text-dark-400 font-medium">System status: <span className="text-emerald-400">Operational</span> • Welcome, {user.name}</p>
             </header>
             
             <Routes>
               <Route path="/" element={<AdminOverview stats={stats} />} />
               <Route path="/members" element={<MembersTab members={members} setMembers={setMembers} />} />
               <Route path="/trainers" element={<TrainersTab trainers={trainers} setTrainers={setTrainers} />} />
-              <Route path="/classes" element={
-                <div className="space-y-8">
-                  <ScheduleCalendar />
-                  <h2 className="text-xl font-bold text-white">All Classes</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {classes.map(c => <ClassCard key={c.id || c._id} classData={c} />)}
-                  </div>
-                </div>
-              } />
+              <Route path="/classes" element={<ClassesTab classes={classes} trainers={trainers} setClasses={setClasses} />} />
               <Route path="/payments" element={
                 <div className="glass-card p-6">
-                  <h2 className="text-xl font-bold text-white mb-6">Recent Payments</h2>
+                  <h2 className="text-xl font-bold text-white mb-6 uppercase tracking-wider">Financial Transactions</h2>
                   <div className="space-y-3">
-                    {payments.map(p => <PaymentCard key={p.id || p._id} payment={p} />)}
+                    {payments.length > 0 ? (
+                      payments.map(p => <PaymentCard key={p.id || p._id} payment={p} />)
+                    ) : (
+                      <p className="text-dark-500 text-center py-8 italic">No payment records found.</p>
+                    )}
                   </div>
                 </div>
               } />
               <Route path="/attendance" element={<AttendanceTracker />} />
-              <Route path="/subscriptions" element={<SubscriptionPlan />} />
+              <Route path="/subscriptions" element={
+                <div className="space-y-6">
+                   <h2 className="text-xl font-bold text-white uppercase tracking-wider">Subscription Management</h2>
+                   <SubscriptionPlan />
+                </div>
+              } />
               <Route path="/profile" element={<ProfileSettings />} />
             </Routes>
           </div>
@@ -300,5 +545,6 @@ const AdminDashboard = () => {
     </div>
   );
 };
+
 
 export default AdminDashboard;

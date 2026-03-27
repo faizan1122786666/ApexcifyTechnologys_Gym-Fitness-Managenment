@@ -9,16 +9,17 @@ import WorkoutPlan from '../../components/Workout/WorkoutPlan';
 import DietPlan from '../../components/Workout/DietPlan';
 import ProfileSettings from '../../pages/Profile/ProfileSettings';
 import { mockWorkoutPlans, mockDietPlans } from '../../data/staticData';
-import { classService, memberService } from '../../services/api';
+import { classService, memberService, trainerService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import UserAvatar from '../../components/Common/UserAvatar';
+
 
 const TrainerOverview = ({ stats }) => (
   <>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
       <StatsCard title="Assigned Members" value={stats.assignedMembers} icon="👥" />
       <StatsCard title="Classes Today" value={stats.classesToday} icon="📅" />
-      <StatsCard title="Upcoming Classes" value={stats.upcomingClasses} icon="⏰" />
-      <StatsCard title="Rating" value={`${stats.rating}/5.0`} subtitle={`${stats.reviews} Reviews`} icon="⭐" />
+      <StatsCard title="Active Classes" value={stats.activeClasses} icon="⏰" />
     </div>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2">
@@ -48,17 +49,40 @@ const TrainerDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isTrainer } = useAuth();
   const navigate = useNavigate();
-  const stats = { assignedMembers: 0, classesToday: 0, upcomingClasses: 0, rating: 5.0, reviews: 24 };
+  const [stats, setStats] = useState({ assignedMembers: 0, classesToday: 0, activeClasses: 0 });
 
   const [myClasses, setMyClasses] = useState([]);
   const [assignedMembers, setAssignedMembers] = useState([]);
 
   useEffect(() => {
-    if (user) {
-      classService.getAll().then(res => setMyClasses(res.data.data.filter(c => c.trainer === user._id || true))).catch(()=>{});
-      memberService.getAll().then(res => setAssignedMembers(res.data.data)).catch(()=>{});
-    }
+    const fetchData = async () => {
+      if (!user) return;
+      try {
+        const [classesRes, membersRes] = await Promise.all([
+          classService.getAll().catch(() => ({ data: [] })),
+          trainerService.getMembers().catch(() => ({ data: [] }))
+        ]);
+        
+        const allSystemClasses = Array.isArray(classesRes.data) ? classesRes.data : [];
+        const trainerClasses = allSystemClasses.filter(c => (c.trainer && c.trainer._id === user._id) || c.trainer === user._id);
+        const trainerMembers = Array.isArray(membersRes.data) ? membersRes.data : [];
+
+        setMyClasses(trainerClasses);
+        setAssignedMembers(trainerMembers);
+        
+        setStats({
+          assignedMembers: trainerMembers.length,
+          classesToday: trainerClasses.filter(c => c.schedule.day === new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date())).length,
+          activeClasses: trainerClasses.length
+        });
+      } catch (err) {
+        console.error("Failed to load trainer data", err);
+      }
+    };
+    
+    fetchData();
   }, [user]);
+
 
   return (
     <div className="min-h-screen bg-dark-950 flex flex-col pt-16 md:pt-20">
@@ -88,10 +112,14 @@ const TrainerDashboard = () => {
                 <div className="glass-card p-6">
                   <h2 className="text-xl font-bold text-white mb-4">Assigned Members</h2>
                   <div className="space-y-4">{assignedMembers.map(m => (
-                    <div key={m.id} className="flex flex-col sm:flex-row justify-between sm:items-center bg-white/5 p-4 rounded-xl hover:bg-white/10 gap-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{m.avatar}</span>
-                        <div><p className="font-semibold text-white">{m.name}</p><p className="text-sm text-dark-400">{m.email}</p></div>
+                    <div key={m._id} className="flex flex-col sm:flex-row justify-between sm:items-center bg-white/5 p-4 rounded-xl hover:bg-white/10 gap-4">
+                      <div className="flex items-center gap-4">
+                        <UserAvatar src={m.profilePic} name={m.name} size="md" />
+                        <div>
+                          <p className="font-semibold text-white">{m.name}</p>
+                          <p className="text-sm text-dark-400">{m.email}</p>
+                          <p className="text-[10px] text-dark-500 uppercase font-bold mt-1 tracking-wider">Joined {new Date(m.joinedAt).toLocaleDateString()}</p>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                          <button className="px-3 py-1 bg-primary-500/10 text-primary-400 text-xs rounded-lg hover:bg-primary-500 hover:text-white transition-colors">Assign Diet</button>
@@ -99,6 +127,7 @@ const TrainerDashboard = () => {
                       </div>
                     </div>
                   ))}</div>
+
                 </div>
               } />
               <Route path="/workouts" element={

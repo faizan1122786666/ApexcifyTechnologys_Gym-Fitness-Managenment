@@ -31,7 +31,20 @@ const registerUser = async (req, res) => {
         });
 
         if (user) {
+            // Create notification for Admin
+            try {
+                const Notification = require('../models/Notification');
+                await Notification.create({
+                    type: 'NEW_USER',
+                    message: `New user registered: ${user.name}`,
+                    data: { userId: user._id, email: user.email }
+                });
+            } catch (err) {
+                console.error("Failed to create notification", err);
+            }
+
             res.status(201).json({
+
                 _id: user._id,
                 name: user.name,
                 email: user.email,

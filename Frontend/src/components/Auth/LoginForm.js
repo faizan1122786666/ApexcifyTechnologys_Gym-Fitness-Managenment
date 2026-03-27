@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
+
 
 const LoginForm = () => {
   const [email, setEmail] = useState('');
@@ -8,25 +10,41 @@ const LoginForm = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (isAuthenticated && user) {
+      const role = user.role;
+      navigate(role === 'admin' ? '/admin' : role === 'trainer' ? '/trainer' : '/member');
+    }
+  }, [isAuthenticated, user, navigate]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const result = login(email, password);
+    try {
+      const result = await login(email, password);
       if (result.success) {
+        toast.success(`Welcome back, ${result.user.name}!`);
         const role = result.user.role;
         navigate(role === 'admin' ? '/admin' : role === 'trainer' ? '/trainer' : '/member');
       } else {
+        toast.error(result.error);
         setError(result.error);
       }
+    } catch (err) {
+      toast.error('An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+
       setIsLoading(false);
-    }, 800);
+    }
   };
+
 
   const demoAccounts = [
     { role: 'Admin', email: 'admin@fitnessdesk.com', password: 'admin123', icon: '👨‍💼', color: 'from-amber-500 to-yellow-600' },
@@ -45,11 +63,15 @@ const LoginForm = () => {
       <div className="w-full max-w-md relative z-10 animate-fade-in">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-emerald rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-xl">F</span>
+          <Link to="/" className="inline-flex items-center gap-3 mb-6 group">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300 overflow-hidden bg-white/5 shadow-glow">
+              <img src="/images/logo.png" alt="FitnessDesk Logo" className="w-full h-full object-cover" />
             </div>
+            <span className="text-2xl font-display font-bold text-white tracking-wide">
+              Fitness<span className="gradient-text">Desk</span>
+            </span>
           </Link>
+
           <h1 className="text-3xl font-display font-bold text-white">Welcome Back</h1>
           <p className="text-dark-400 mt-2">Sign in to your FitnessDesk account</p>
         </div>
@@ -140,25 +162,7 @@ const LoginForm = () => {
           </p>
         </div>
 
-        {/* Demo Accounts */}
-        <div className="mt-6">
-          <p className="text-center text-dark-500 text-xs mb-3">Quick Demo Login</p>
-          <div className="grid grid-cols-3 gap-2">
-            {demoAccounts.map((acc) => (
-              <button
-                key={acc.role}
-                onClick={() => {
-                  setEmail(acc.email);
-                  setPassword(acc.password);
-                }}
-                className="glass-card p-3 text-center hover:bg-white/10 transition-all duration-200 group"
-              >
-                <span className="text-2xl block mb-1">{acc.icon}</span>
-                <span className="text-xs text-dark-400 group-hover:text-white transition-colors">{acc.role}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+
       </div>
     </div>
   );

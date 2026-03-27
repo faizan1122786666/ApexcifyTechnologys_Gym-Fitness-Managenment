@@ -34,6 +34,8 @@ app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/subscriptions', require('./routes/subscriptionRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
+
 
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 

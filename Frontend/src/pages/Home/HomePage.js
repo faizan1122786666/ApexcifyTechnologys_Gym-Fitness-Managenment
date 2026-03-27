@@ -1,26 +1,49 @@
-
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { landingFeatures, mockSubscriptionPlans } from '../../data/staticData';
 import { trainerService, classService, memberService, reviewService } from '../../services/api';
-import { trainerService, classService } from '../../services/api';
 import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/helpers';
 import ClassCard from '../../components/ClassScheduling/ClassCard';
 import TrainerCard from '../../components/Trainer/TrainerCard';
 import Navbar from '../../components/Layout/Navbar';
 import Footer from '../../components/Layout/Footer';
+import { useAuth } from '../../context/AuthContext';
 
 const HomePage = () => {
   const [trainers, setTrainers] = useState([]);
   const [memberCount, setMemberCount] = useState(0);
   const [testimonials, setTestimonials] = useState([]);
   const [classes, setClasses] = useState([]);
+  const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
+  const dashboardLink = user?.role === 'admin' ? '/admin' : user?.role === 'trainer' ? '/trainer' : '/member';
+
+
+  const trainerScrollRef = React.useRef(null);
+  const scrollTrainers = (direction) => {
+      if (trainerScrollRef.current) {
+          const { scrollLeft, clientWidth } = trainerScrollRef.current;
+          const scrollTo = direction === 'left' ? scrollLeft - clientWidth : scrollLeft + clientWidth;
+          trainerScrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+      }
+  };
+
   useEffect(() => {
-    trainerService.getAll().then(res => setTrainers(res.data.data.slice(0, 4))).catch(() => {});
-    classService.getAll().then(res => setClasses(res.data.data)).catch(() => {});
-    memberService.getAll().then(res => setMemberCount(res.data.data?.length || 0)).catch(() => {});
-    reviewService.getAll().then(res => setTestimonials(res.data.data)).catch(() => {});
+    trainerService.getAll().then(res => setTrainers(Array.isArray(res.data) ? res.data : [])).catch(() => {});
+    classService.getAll().then(res => setClasses(Array.isArray(res.data) ? res.data : [])).catch(() => {});
+    memberService.getAll().then(res => setMemberCount(Array.isArray(res.data) ? res.data.length : 0)).catch(() => {});
+    reviewService.getAll().then(res => setTestimonials(Array.isArray(res.data) ? res.data : [])).catch(() => {});
   }, []);
+
+  const handleEnroll = (classId) => {
+    if (isAuthenticated) {
+      navigate('/member');
+    } else {
+      navigate('/signup');
+    }
+  };
+
+
 
   return (
     <div className="min-h-screen bg-dark-950">
@@ -55,16 +78,28 @@ const HomePage = () => {
               </p>
 
               <div className="flex flex-wrap gap-4 mt-8">
-                <Link to="/signup" className="btn-primary text-base flex items-center gap-2">
-                  Get Started Now
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
-                </Link>
-                <Link to="/login" className="btn-secondary text-base">
-                  Log In
-                </Link>
+                {isAuthenticated ? (
+                  <Link to={dashboardLink} className="btn-primary text-base flex items-center gap-2">
+                    Go to Dashboard
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/signup" className="btn-primary text-base flex items-center gap-2">
+                      Get Started Now
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </Link>
+                    <Link to="/login" className="btn-secondary text-base">
+                      Log In
+                    </Link>
+                  </>
+                )}
               </div>
+
 
               {/* Stats */}
               <div className="flex gap-8 mt-12">
@@ -180,24 +215,27 @@ const HomePage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {classes.slice(0, 4).map((cls) => (
-              <ClassCard key={cls.id} classData={cls} />
+              <ClassCard key={cls._id || cls.id} classData={cls} onEnroll={handleEnroll} />
             ))}
+
           </div>
 
           <div className="text-center mt-10">
-            <Link to="/signup" className="btn-secondary inline-flex items-center gap-2">
-              View All Classes
+            <Link to={isAuthenticated ? dashboardLink : "/signup"} className="btn-secondary inline-flex items-center gap-2">
+              {isAuthenticated ? "Go to Dashboard" : "View All Classes"}
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </Link>
           </div>
+
         </div>
       </section>
 
       {/* ============ TRAINERS SECTION ============ */}
-      <section className="py-20 bg-dark-950">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-20 bg-dark-950 relative overflow-hidden">
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center mb-16">
             <span className="text-primary-400 text-sm font-semibold uppercase tracking-wider">Our Team</span>
             <h2 className="section-title mt-2">Meet Our <span className="gradient-text">Expert Trainers</span></h2>
@@ -206,13 +244,37 @@ const HomePage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {trainers.map((trainer) => (
-              <TrainerCard key={trainer.id} trainer={trainer} />
-            ))}
+          <div className="relative group/carousel">
+             {/* Carousel Container */}
+             <div 
+               ref={trainerScrollRef}
+               className="flex overflow-x-auto scroll-smooth gap-6 no-scrollbar pb-8 px-4 -mx-4 items-stretch"
+             >
+               {trainers.map((trainer) => (
+                 <div key={trainer._id || trainer.id} className="min-w-[280px] md:min-w-[320px] lg:min-w-[300px] flex-shrink-0 h-full">
+                    <TrainerCard trainer={trainer} onEnroll={handleEnroll} />
+                 </div>
+               ))}
+
+             </div>
+
+             {/* Navigation Arrows */}
+             <button 
+               onClick={() => scrollTrainers('left')}
+               className="absolute top-1/2 -left-4 -translate-y-1/2 w-12 h-12 rounded-full bg-dark-900/80 border border-white/10 backdrop-blur-md flex items-center justify-center text-white shadow-glow opacity-0 group-hover/carousel:opacity-100 transition-opacity z-20 hover:bg-primary-500/20"
+             >
+               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+             </button>
+             <button 
+               onClick={() => scrollTrainers('right')}
+               className="absolute top-1/2 -right-4 -translate-y-1/2 w-12 h-12 rounded-full bg-dark-900/80 border border-white/10 backdrop-blur-md flex items-center justify-center text-white shadow-glow opacity-0 group-hover/carousel:opacity-100 transition-opacity z-20 hover:bg-primary-500/20"
+             >
+               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+             </button>
           </div>
         </div>
       </section>
+
 
       {/* ============ PRICING SECTION ============ */}
       <section id="pricing" className="py-20 bg-dark-900/30">
@@ -257,14 +319,15 @@ const HomePage = () => {
                     ))}
                   </div>
                   <Link
-                    to="/signup"
+                    to={isAuthenticated ? dashboardLink : "/signup"}
                     className={`block w-full py-3 rounded-xl font-medium transition-all duration-300 text-center ${plan.popular
                         ? 'bg-gradient-to-r from-primary-500 to-accent-emerald text-white hover:shadow-glow'
                         : 'bg-white/5 text-white hover:bg-primary-500/10 hover:text-primary-400'
                       }`}
                   >
-                    Get Started
+                    {isAuthenticated ? "My Account" : "Get Started"}
                   </Link>
+
                 </div>
               </div>
             ))}
@@ -283,18 +346,7 @@ const HomePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {(testimonials.length > 0 ? testimonials : []).map((testimonial) => (
               <div key={testimonial.id} className="glass-card-hover p-8">
-                <div className="flex items-center gap-1 mb-4">
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${i < testimonial.rating ? 'text-amber-400' : 'text-dark-700'}`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
+
                 <p className="text-dark-300 text-sm leading-relaxed italic">"{testimonial.comment}"</p>
                 <div className="flex items-center gap-3 mt-6">
                   <div className="w-10 h-10 overflow-hidden bg-primary-500/20 rounded-full flex items-center justify-center text-xl shrink-0">
@@ -325,13 +377,22 @@ const HomePage = () => {
                 Join FitnessDesk today and get access to expert trainers, personalized workout plans, and a supportive fitness community.
               </p>
               <div className="flex flex-wrap justify-center gap-4 mt-8">
-                <Link to="/signup" className="btn-primary text-base">
-                  Start Free Trial
-                </Link>
-                <Link to="/login" className="btn-secondary text-base">
-                  Already a Member?
-                </Link>
+                {isAuthenticated ? (
+                  <Link to={dashboardLink} className="btn-primary text-base px-10">
+                    Go to Dashboard
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/signup" className="btn-primary text-base">
+                      Start Free Trial
+                    </Link>
+                    <Link to="/login" className="btn-secondary text-base">
+                      Already a Member?
+                    </Link>
+                  </>
+                )}
               </div>
+
             </div>
           </div>
         </div>

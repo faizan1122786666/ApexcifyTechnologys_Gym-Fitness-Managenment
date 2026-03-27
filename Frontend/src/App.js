@@ -8,6 +8,10 @@ import AdminDashboard from './pages/Admin/AdminDashboard';
 import TrainerDashboard from './pages/Trainer/TrainerDashboard';
 import MemberDashboard from './pages/Member/MemberDashboard';
 
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/index.css';
+import ProtectedRoute from './components/Auth/ProtectedRoute';
+
 function App() {
   return (
     <Router>
@@ -18,16 +22,41 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             
-            <Route path="/admin/*" element={<AdminDashboard />} />
-            <Route path="/trainer/*" element={<TrainerDashboard />} />
-            <Route path="/member/*" element={<MemberDashboard />} />
+            <Route path="/admin/*" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/trainer/*" element={
+              <ProtectedRoute allowedRoles={['trainer', 'admin']}>
+                <TrainerDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/member/*" element={
+              <ProtectedRoute allowedRoles={['member', 'admin', 'trainer']}>
+                <MemberDashboard />
+              </ProtectedRoute>
+            } />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <ToastContainer 
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="dark"
+          />
         </div>
       </AuthProvider>
     </Router>
   );
 }
+
 
 export default App;

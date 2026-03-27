@@ -1,14 +1,24 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
+
 
 const SignupForm = () => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '', role: 'member' });
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signup } = useAuth();
+  const { signup, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (isAuthenticated && user) {
+      const role = user.role;
+      navigate(role === 'admin' ? '/admin' : role === 'trainer' ? '/trainer' : '/member');
+    }
+  }, [isAuthenticated, user, navigate]);
+
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -28,16 +38,24 @@ const SignupForm = () => {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      const result = signup(formData.name, formData.email, formData.password, formData.role);
+    try {
+      const result = await signup(formData.name, formData.email, formData.password, formData.role);
       if (result.success) {
+        toast.success(`Account created! Welcome, ${formData.name}.`);
         navigate('/member');
       } else {
+        toast.error(result.error);
         setError(result.error);
       }
+    } catch (err) {
+      toast.error('An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
+
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dark-950 px-4 pt-20 pb-10">
@@ -48,11 +66,15 @@ const SignupForm = () => {
 
       <div className="w-full max-w-md relative z-10 animate-fade-in">
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-emerald rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-xl">F</span>
+          <Link to="/" className="inline-flex items-center gap-3 mb-6 group">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300 overflow-hidden bg-white/5 shadow-glow">
+              <img src="/images/logo.png" alt="FitnessDesk Logo" className="w-full h-full object-cover" />
             </div>
+            <span className="text-2xl font-display font-bold text-white tracking-wide">
+              Fitness<span className="gradient-text">Desk</span>
+            </span>
           </Link>
+
           <h1 className="text-3xl font-display font-bold text-white">Create Account</h1>
           <p className="text-dark-400 mt-2">Start your fitness journey with FitnessDesk</p>
         </div>
@@ -85,13 +107,7 @@ const SignupForm = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">Role</label>
-              <select name="role" value={formData.role} onChange={handleChange} className="input-field">
-                <option value="member">Member</option>
-                <option value="trainer">Trainer</option>
-              </select>
-            </div>
+
 
             <div>
               <label className="block text-sm font-medium text-dark-300 mb-2">Password</label>

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { notificationService } from '../../services/api';
+
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,6 +11,39 @@ const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchNotifications = async () => {
+    if (user?.role === 'admin') {
+      try {
+        const res = await notificationService.getNotifications();
+        setNotifications(res.data || []);
+        setUnreadCount(res.data?.filter(n => !n.isRead).length || 0);
+      } catch (err) {
+        console.error("Failed to fetch notifications", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000); // Poll every 30s
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const handleMarkRead = async (id) => {
+    try {
+      await notificationService.markRead(id);
+      setNotifications(notifications.map(n => n._id === id ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error("Failed to mark as read", err);
+    }
+  };
+
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -66,40 +101,60 @@ const Navbar = () => {
           <div className="hidden md:flex items-center gap-4">
             {isAuthenticated ? (
               <div className="flex items-center gap-4">
-                {/* Notification Bell */}
-                <div className="relative" onMouseEnter={() => { setShowNotifications(true); setShowProfile(false); }} onMouseLeave={() => setShowNotifications(false)}>
-                  <button
-                    className="relative p-2 text-dark-400 hover:text-white transition-colors"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold">
-                      2
-                    </span>
-                  </button>
-                  {showNotifications && (
-                    <div className="absolute right-0 mt-2 w-80 glass-card p-4 animate-slide-up">
-                      <h3 className="font-semibold text-white mb-3">Notifications</h3>
-                      <div className="space-y-3">
-                        <div className="flex gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer">
-                          <span className="text-xl">📅</span>
-                          <div>
-                            <p className="text-sm text-white">Class Reminder</p>
-                            <p className="text-xs text-dark-400">HIIT Blast starts in 1 hour</p>
-                          </div>
+                {/* Notification Bell (Admin Only) */}
+                {user?.role === 'admin' && (
+                  <div className="relative" onMouseEnter={() => { setShowNotifications(true); setShowProfile(false); }} onMouseLeave={() => setShowNotifications(false)}>
+                    <button className="relative p-2 text-dark-400 hover:text-white transition-colors">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold animate-pulse">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    {showNotifications && (
+                      <div className="absolute right-0 mt-2 w-80 glass-card p-4 animate-slide-up shadow-2xl">
+                        <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+                           <h3 className="font-semibold text-white">Notifications</h3>
+                           {unreadCount > 0 && (
+                             <button 
+                               onClick={async () => {
+                                  await notificationService.markAllRead();
+                                  fetchNotifications();
+                               }}
+                               className="text-[10px] text-primary-400 hover:text-primary-300 uppercase font-bold"
+                             >
+                               Mark all read
+                             </button>
+                           )}
                         </div>
-                        <div className="flex gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer">
-                          <span className="text-xl">💳</span>
-                          <div>
-                            <p className="text-sm text-white">Payment Received</p>
-                            <p className="text-xs text-dark-400">$99.99 payment successful</p>
-                          </div>
+                        <div className="space-y-2 max-h-80 overflow-y-auto no-scrollbar">
+                          {notifications.length > 0 ? notifications.map(n => (
+                            <div 
+                              key={n._id} 
+                              onClick={() => !n.isRead && handleMarkRead(n._id)}
+                              className={`flex gap-3 p-3 rounded-lg transition-colors cursor-pointer ${n.isRead ? 'opacity-60 grayscale' : 'bg-white/5 hover:bg-white/10'}`}
+                            >
+                              <span className="text-xl">
+                                {n.type === 'NEW_USER' ? '👤' : n.type === 'NEW_PAYMENT' ? '💳' : '🔔'}
+                              </span>
+                              <div className="flex-1">
+                                <p className={`text-sm ${n.isRead ? 'text-dark-400' : 'text-white font-medium'}`}>{n.message}</p>
+                                <p className="text-[10px] text-dark-500 mt-1">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                              </div>
+                              {!n.isRead && <div className="w-2 h-2 bg-primary-500 rounded-full mt-2"></div>}
+                            </div>
+                          )) : (
+                            <p className="text-center text-dark-500 py-4 text-sm italic">No notifications yet</p>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+
 
                 {/* Profile */}
                 <div className="relative" onMouseEnter={() => { setShowProfile(true); setShowNotifications(false); }} onMouseLeave={() => setShowProfile(false)}>

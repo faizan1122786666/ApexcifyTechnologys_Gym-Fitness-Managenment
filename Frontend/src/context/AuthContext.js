@@ -22,9 +22,10 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const res = await authService.getProfile();
-          if (res.data.success) {
-            setUser(res.data.data);
-            localStorage.setItem('fitnessDesk_user', JSON.stringify(res.data.data));
+          // Backend returns the user object directly in res.data
+          if (res.data && res.data._id) {
+            setUser(res.data);
+            localStorage.setItem('fitnessDesk_user', JSON.stringify(res.data));
           } else {
             localStorage.removeItem('fitnessDesk_token');
             localStorage.removeItem('fitnessDesk_user');
@@ -37,7 +38,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         const savedUser = localStorage.getItem('fitnessDesk_user');
         if (savedUser) {
-           setUser(JSON.parse(savedUser));
+          setUser(JSON.parse(savedUser));
         }
       }
       setLoading(false);
@@ -49,11 +50,12 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const res = await authService.login({ email, password });
-      if (res.data.success) {
-         setUser(res.data.user);
-         localStorage.setItem('fitnessDesk_token', res.data.token);
-         localStorage.setItem('fitnessDesk_user', JSON.stringify(res.data.user));
-         return { success: true, user: res.data.user };
+      // Backend returns { _id, name, email, role, token } directly in res.data
+      if (res.data && res.data.token) {
+        setUser(res.data);
+        localStorage.setItem('fitnessDesk_token', res.data.token);
+        localStorage.setItem('fitnessDesk_user', JSON.stringify(res.data));
+        return { success: true, user: res.data };
       }
       return { success: false, error: 'Invalid credentials' };
     } catch (error) {
@@ -64,14 +66,14 @@ export const AuthProvider = ({ children }) => {
   const signup = async (name, email, password, role = 'member') => {
     try {
       const res = await authService.signup({ name, email, password, role });
-      if (res.data.success || res.status === 201) {
-         // Usually signup doesn't auto login, or it does. Let's assume it logs auth token
-         if(res.data.token) {
-           setUser(res.data.user);
-           localStorage.setItem('fitnessDesk_token', res.data.token);
-           localStorage.setItem('fitnessDesk_user', JSON.stringify(res.data.user));
-         }
-         return { success: true, user: res.data.user || {} };
+      // Backend returns { _id, name, email, role, token } directly in res.data
+      if (res.data && (res.status === 201 || res.data._id)) {
+        if (res.data.token) {
+          setUser(res.data);
+          localStorage.setItem('fitnessDesk_token', res.data.token);
+          localStorage.setItem('fitnessDesk_user', JSON.stringify(res.data));
+        }
+        return { success: true, user: res.data };
       }
       return { success: false, error: 'Signup failed' };
     } catch (error) {
@@ -79,23 +81,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('fitnessDesk_token');
     localStorage.removeItem('fitnessDesk_user');
   };
 
+  const updateUser = (userData) => {
+    const updatedUser = { ...user, ...userData };
+    setUser(updatedUser);
+    localStorage.setItem('fitnessDesk_user', JSON.stringify(updatedUser));
+  };
+ 
   const value = {
     user,
     login,
     signup,
     logout,
+    updateUser,
     loading,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'admin',
     isTrainer: user?.role === 'trainer',
     isMember: user?.role === 'member',
   };
+
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

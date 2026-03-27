@@ -38,8 +38,12 @@ api.interceptors.response.use(
 export const authService = {
   login: (credentials) => api.post('/auth/login', credentials),
   signup: (userData) => api.post('/auth/register', userData),
-  getProfile: () => api.get('/auth/profile'),
+  getProfile: () => api.get('/users/profile'),
+  updateProfile: (data) => api.put('/users/profile', data),
+  adminUpdateUser: (id, data) => api.put(`/users/admin/user/${id}`, data),
 };
+
+
 
 // Member services
 export const memberService = {
@@ -63,7 +67,9 @@ export const trainerService = {
   getAll: () => api.get('/trainers'),
   getById: (id) => api.get(`/trainers/${id}`),
   getSchedule: (id) => api.get(`/trainers/${id}/schedule`),
+  getMembers: () => api.get('/users/trainer/members'),
 };
+
 
 // Workout services
 export const workoutService = {
@@ -75,18 +81,29 @@ export const workoutService = {
 // Payment services
 export const paymentService = {
   getAll: () => api.get('/payments'),
+  getMyPayments: () => api.get('/payments/my-payments'),
   createCheckout: (data) => api.post('/payments/checkout', data),
   getSubscriptions: () => api.get('/payments/subscriptions'),
 };
 
+
 // Attendance services
 export const attendanceService = {
-  getAll: () => api.get('/attendance'),
-  checkIn: (data) => api.post('/attendance/checkin', data),
-  checkOut: (data) => api.post('/attendance/checkout', data),
+  getAll: (date, memberId) => api.get('/attendance', { params: { date, memberId } }),
+  getMyAttendance: () => api.get('/attendance/my-attendance'),
+  checkIn: (data) => api.post('/attendance/check-in', data),
+  checkOut: (data) => api.post('/attendance/check-out', data),
+};
+
+
+export const notificationService = {
+  getNotifications: () => api.get('/notifications'),
+  markRead: (id) => api.patch(`/notifications/${id}`),
+  markAllRead: () => api.patch('/notifications/read-all'),
 };
 
 export default api;
+
 
 export const reviewService = {
   getAll: () => api.get('/testimonials'),
