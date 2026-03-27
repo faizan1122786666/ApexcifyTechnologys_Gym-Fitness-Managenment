@@ -1,5 +1,5 @@
 import React from 'react';
-import { mockRecentActivity } from '../../data/mockData';
+import { mockRecentActivity } from '../../data/staticData';
 
 const RecentActivity = () => {
   return (
@@ -24,3 +24,4 @@ const RecentActivity = () => {
 };
 
 export default RecentActivity;
+

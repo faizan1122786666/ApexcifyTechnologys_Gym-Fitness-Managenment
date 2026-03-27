@@ -1,6 +1,8 @@
-import React from 'react';
+
 import { Link } from 'react-router-dom';
-import { mockClasses, mockUsers, landingFeatures, mockTestimonials, mockSubscriptionPlans } from '../../data/mockData';
+import { landingFeatures, mockTestimonials, mockSubscriptionPlans } from '../../data/staticData';
+import { trainerService, classService } from '../../services/api';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/helpers';
 import ClassCard from '../../components/ClassScheduling/ClassCard';
 import TrainerCard from '../../components/Trainer/TrainerCard';
@@ -8,7 +10,12 @@ import Navbar from '../../components/Layout/Navbar';
 import Footer from '../../components/Layout/Footer';
 
 const HomePage = () => {
-  const trainers = mockUsers.filter(u => u.role === 'trainer');
+  const [trainers, setTrainers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  useEffect(() => {
+    trainerService.getAll().then(res => setTrainers(res.data.data.slice(0, 4))).catch(() => {});
+    classService.getAll().then(res => setClasses(res.data.data)).catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen bg-dark-950">
@@ -167,7 +174,7 @@ const HomePage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {mockClasses.slice(0, 4).map((cls) => (
+            {classes.slice(0, 4).map((cls) => (
               <ClassCard key={cls.id} classData={cls} />
             ))}
           </div>
@@ -332,3 +339,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+

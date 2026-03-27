@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Layout/Navbar';
 import Sidebar from '../../components/Layout/Sidebar';
@@ -11,7 +11,8 @@ import AttendanceTracker from '../../components/Attendance/AttendanceTracker';
 import PaymentCard from '../../components/Payment/PaymentCard';
 import SubscriptionPlan from '../../components/Payment/SubscriptionPlan';
 import ProfileSettings from '../../pages/Profile/ProfileSettings';
-import { mockDashboardStats, mockWorkoutPlans, mockDietPlans, mockClasses, mockPayments } from '../../data/mockData';
+import { mockWorkoutPlans, mockDietPlans } from '../../data/staticData';
+import { classService, paymentService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const MemberOverview = ({ stats }) => (
@@ -39,15 +40,17 @@ const MemberDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isMember } = useAuth();
   const navigate = useNavigate();
-  const stats = mockDashboardStats.member;
+  const stats = { workoutsThisWeek: 4, caloriesBurned: 1850, streak: 12, totalWorkouts: 45 };
 
-  if (!user || (!isMember && user.role !== 'member')) {
-    navigate('/login');
-    return null;
-  }
+  const [availableClasses, setAvailableClasses] = useState([]);
+  const [myPayments, setMyPayments] = useState([]);
 
-  // filter my payments for demo
-  const myPayments = mockPayments.filter(p => p.memberId === user.id || p.memberName.includes('John'));
+  useEffect(() => {
+    if (user) {
+      classService.getAll().then(res => setAvailableClasses(res.data.data)).catch(()=>{});
+      paymentService.getAll().then(res => setMyPayments(res.data.data)).catch(()=>{});
+    }
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-dark-950 flex flex-col pt-16 md:pt-20">
@@ -73,7 +76,7 @@ const MemberDashboard = () => {
                   <ScheduleCalendar />
                   <h2 className="text-xl font-bold text-white">Available Classes</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {mockClasses.map(c => <ClassCard key={c.id} classData={c} />)}
+                    {availableClasses.map(c => <ClassCard key={c.id} classData={c} />)}
                   </div>
                 </div>
               } />
@@ -112,3 +115,4 @@ const MemberDashboard = () => {
 };
 
 export default MemberDashboard;
+

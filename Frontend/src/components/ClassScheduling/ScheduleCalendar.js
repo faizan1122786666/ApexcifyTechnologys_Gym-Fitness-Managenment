@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { mockClasses } from '../../data/mockData';
+import { mockClasses } from '../../data/staticData';
 
 const ScheduleCalendar = () => {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -64,3 +64,4 @@ const ScheduleCalendar = () => {
 };
 
 export default ScheduleCalendar;
+

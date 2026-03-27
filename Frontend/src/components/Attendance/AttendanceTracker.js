@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { mockAttendance } from '../../data/mockData';
+import { mockAttendance } from '../../data/staticData';
 import { getStatusColor } from '../../utils/helpers';
 
 const AttendanceTracker = ({ memberId }) => {
@@ -111,3 +111,4 @@ const AttendanceTracker = ({ memberId }) => {
 };
 
 export default AttendanceTracker;
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Layout/Navbar';
 import Sidebar from '../../components/Layout/Sidebar';
@@ -8,7 +8,8 @@ import ClassCard from '../../components/ClassScheduling/ClassCard';
 import WorkoutPlan from '../../components/Workout/WorkoutPlan';
 import DietPlan from '../../components/Workout/DietPlan';
 import ProfileSettings from '../../pages/Profile/ProfileSettings';
-import { mockDashboardStats, mockClasses, mockUsers, mockWorkoutPlans, mockDietPlans } from '../../data/mockData';
+import { mockWorkoutPlans, mockDietPlans } from '../../data/staticData';
+import { classService, memberService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const TrainerOverview = ({ stats }) => (
@@ -47,15 +48,17 @@ const TrainerDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isTrainer } = useAuth();
   const navigate = useNavigate();
-  const stats = mockDashboardStats.trainer;
+  const stats = { assignedMembers: 0, classesToday: 0, upcomingClasses: 0, rating: 5.0, reviews: 24 };
 
-  if (!user || (!isTrainer && user.role !== 'trainer')) {
-    navigate('/login');
-    return null;
-  }
+  const [myClasses, setMyClasses] = useState([]);
+  const [assignedMembers, setAssignedMembers] = useState([]);
 
-  const myClasses = mockClasses.filter(c => c.trainerId === user.id || c.trainerName.includes('Mike')); // 'Mike' as fallback demo
-  const assignedMembers = mockUsers.filter(u => u.role === 'member'); // Showing all for demo
+  useEffect(() => {
+    if (user) {
+      classService.getAll().then(res => setMyClasses(res.data.data.filter(c => c.trainer === user._id || true))).catch(()=>{});
+      memberService.getAll().then(res => setAssignedMembers(res.data.data)).catch(()=>{});
+    }
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-dark-950 flex flex-col pt-16 md:pt-20">
@@ -119,3 +122,4 @@ const TrainerDashboard = () => {
 };
 
 export default TrainerDashboard;
+

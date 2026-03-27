@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { mockSubscriptionPlans } from '../../data/mockData';
+import { mockSubscriptionPlans } from '../../data/staticData';
 import { formatCurrency } from '../../utils/helpers';
 import PaymentModal from './PaymentModal'; // Import the new modal
 
@@ -76,3 +76,4 @@ const SubscriptionPlan = ({ onSelect }) => {
 };
 
 export default SubscriptionPlan;
+

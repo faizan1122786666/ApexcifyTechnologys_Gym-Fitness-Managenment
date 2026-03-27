@@ -14,8 +14,12 @@ import ProfileSettings from '../../pages/Profile/ProfileSettings';
 import Pagination from '../../components/Common/Pagination';
 import UserAvatar from '../../components/Common/UserAvatar';
 import { Plus, X, Search, MoreVertical } from 'lucide-react';
-import { mockDashboardStats, mockPayments, mockClasses, mockUsers } from '../../data/mockData';
+import { Plus, X, Search, MoreVertical } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { memberService, trainerService, classService, paymentService } from '../../services/api';
+
+// Fallback static data for dashboard stats (can be moved to backend later if API exists)
+const defaultStats = { totalMembers: 0, totalTrainers: 0, monthlyRevenue: 0, newSignups: 0 };
 
 const AdminOverview = ({ stats }) => (
   <>
@@ -143,15 +147,59 @@ const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const stats = mockDashboardStats.admin;
+  
+  const [members, setMembers] = useState([]);
+  const [trainers, setTrainers] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [stats, setStats] = useState(defaultStats);
+  const [isLoading, setIsLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [membersRes, trainersRes, classesRes, paymentsRes] = await Promise.all([
+          memberService.getAll().catch(() => ({ data: { data: [] } })),
+          trainerService.getAll().catch(() => ({ data: { data: [] } })),
+          classService.getAll().catch(() => ({ data: { data: [] } })),
+          paymentService.getAll().catch(() => ({ data: { data: [] } }))
+        ]);
+
+        const loadedMembers = membersRes.data?.data || [];
+        const loadedTrainers = trainersRes.data?.data || [];
+
+        setMembers(loadedMembers);
+        setTrainers(loadedTrainers);
+        setClasses(classesRes.data?.data || []);
+        setPayments(paymentsRes.data?.data || []);
+        
+        // Compute basic stats organically
+        setStats({
+           totalMembers: loadedMembers.length,
+           totalTrainers: loadedTrainers.length,
+           monthlyRevenue: 0, // Would be calculated from payments
+           newSignups: loadedMembers.filter(m => new Date(m.createdAt) > new Date(Date.now() - 30*24*60*60*1000)).length || 0
+        });
+      } catch (error) {
+        console.error("Failed to fetch admin data", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   if (!user || (!isAdmin && user.role !== 'admin')) {
     navigate('/login');
     return null;
   }
 
-  const members = mockUsers.filter(u => u.role === 'member');
-  const trainers = mockUsers.filter(u => u.role === 'trainer');
+  if (isLoading) {
+    return <div className="min-h-screen bg-dark-950 flex items-center justify-center text-primary-500">Loading Dashboard...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-dark-950 flex flex-col pt-16 md:pt-20">
@@ -179,7 +227,7 @@ const AdminDashboard = () => {
                   <ScheduleCalendar />
                   <h2 className="text-xl font-bold text-white">All Classes</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {mockClasses.map(c => <ClassCard key={c.id} classData={c} />)}
+                    {classes.map(c => <ClassCard key={c.id || c._id} classData={c} />)}
                   </div>
                 </div>
               } />
@@ -187,7 +235,7 @@ const AdminDashboard = () => {
                 <div className="glass-card p-6">
                   <h2 className="text-xl font-bold text-white mb-6">Recent Payments</h2>
                   <div className="space-y-3">
-                    {mockPayments.map(p => <PaymentCard key={p.id} payment={p} />)}
+                    {payments.map(p => <PaymentCard key={p.id || p._id} payment={p} />)}
                   </div>
                 </div>
               } />
