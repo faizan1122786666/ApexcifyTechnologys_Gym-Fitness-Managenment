@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { mockClasses } from '../../data/staticData';
+
+import { classService } from '../../services/api';
+import React, { useState, useEffect } from 'react';
 
 const ScheduleCalendar = () => {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -64,4 +65,5 @@ const ScheduleCalendar = () => {
 };
 
 export default ScheduleCalendar;
+
 
