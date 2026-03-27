@@ -14,7 +14,6 @@ import ProfileSettings from '../../pages/Profile/ProfileSettings';
 import Pagination from '../../components/Common/Pagination';
 import UserAvatar from '../../components/Common/UserAvatar';
 import { Plus, X, Search, MoreVertical } from 'lucide-react';
-import { Plus, X, Search, MoreVertical } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { memberService, trainerService, classService, paymentService } from '../../services/api';
 
