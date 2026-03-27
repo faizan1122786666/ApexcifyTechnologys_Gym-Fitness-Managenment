@@ -45,13 +45,40 @@ const AdminOverview = ({ stats }) => (
   </>
 );
 
-const MembersTab = ({ members }) => {
+const MembersTab = ({ members, setMembers }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ name: '', email: '', password: 'member123', plan: 'Basic' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const itemsPerPage = 5;
 
   const totalPages = Math.ceil(members.length / itemsPerPage);
   const currentMembers = members.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleCreateMember = async () => {
+    if (!formData.name || !formData.email) return;
+    setIsSubmitting(true);
+    try {
+      // Create new member via api
+      // Note: Default password is 'member123' for manual admin creations
+      const res = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: formData.name, email: formData.email, password: formData.password, role: 'member', membership: formData.plan })
+      });
+      const data = await res.json();
+      if (data.success || res.status === 201) {
+         setMembers([...members, data.user || data.data || { ...formData, _id: Date.now().toString(), role: 'member' }]);
+         setShowModal(false);
+         setFormData({ name: '', email: '', password: 'member123', plan: 'Basic' });
+      } else {
+         alert(data.message || 'Failed to create member');
+      }
+    } catch (err) {
+      alert('Error connecting to backend.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="glass-card p-6">
@@ -81,19 +108,19 @@ const MembersTab = ({ members }) => {
       </div>
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
-      {/* Add Member Modal (Placeholder for UI) */}
+      {/* Add Member Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="glass-card w-full max-w-md p-6 animate-slide-up relative">
             <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X className="w-5 h-5"/></button>
             <h3 className="text-xl font-bold text-white mb-6">Create New Member</h3>
             <div className="space-y-4">
-              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" placeholder="John Doe" /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" placeholder="john@example.com" /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" placeholder="John Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
               <div><label className="text-sm text-dark-300 block mb-1">Plan</label>
-                <select className="input-field"><option>Basic</option><option>Premium</option><option>Elite</option></select>
+                <select className="input-field" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}><option>Basic</option><option>Premium</option><option>Elite</option></select>
               </div>
-              <button onClick={() => setShowModal(false)} className="btn-primary w-full mt-4">Create Member</button>
+              <button disabled={isSubmitting} onClick={handleCreateMember} className="btn-primary w-full mt-4">{isSubmitting ? 'Creating...' : 'Create Member'}</button>
             </div>
           </div>
         </div>
@@ -102,13 +129,38 @@ const MembersTab = ({ members }) => {
   );
 };
 
-const TrainersTab = ({ trainers }) => {
+const TrainersTab = ({ trainers, setTrainers }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ name: '', email: '', password: 'trainer123', specialization: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const itemsPerPage = 4;
 
   const totalPages = Math.ceil(trainers.length / itemsPerPage);
   const currentTrainers = trainers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleCreateTrainer = async () => {
+    if (!formData.name || !formData.email) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: formData.name, email: formData.email, password: formData.password, role: 'trainer', specialization: formData.specialization })
+      });
+      const data = await res.json();
+      if (data.success || res.status === 201) {
+         setTrainers([...trainers, data.user || data.data || { ...formData, _id: Date.now().toString(), role: 'trainer', rating: 5 }]);
+         setShowModal(false);
+         setFormData({ name: '', email: '', password: 'trainer123', specialization: '' });
+      } else {
+         alert(data.message || 'Failed to create trainer');
+      }
+    } catch (err) {
+      alert('Error connecting to backend.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div>
@@ -124,17 +176,17 @@ const TrainersTab = ({ trainers }) => {
       </div>
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
-      {/* Add Trainer Modal (Placeholder for UI) */}
+      {/* Add Trainer Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="glass-card w-full max-w-md p-6 animate-slide-up relative">
             <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X className="w-5 h-5"/></button>
             <h3 className="text-xl font-bold text-white mb-6">Create New Trainer</h3>
             <div className="space-y-4">
-              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" placeholder="Jane Doe" /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" placeholder="jane@fitnessdesk.com" /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Specialization</label><input type="text" className="input-field" placeholder="e.g. Yoga & Pilates" /></div>
-              <button onClick={() => setShowModal(false)} className="btn-primary w-full mt-4">Create Trainer</button>
+              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" placeholder="Jane Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" placeholder="jane@fitnessdesk.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
+              <div><label className="text-sm text-dark-300 block mb-1">Specialization</label><input type="text" className="input-field" placeholder="e.g. Yoga & Pilates" value={formData.specialization} onChange={e => setFormData({...formData, specialization: e.target.value})} /></div>
+              <button disabled={isSubmitting} onClick={handleCreateTrainer} className="btn-primary w-full mt-4">{isSubmitting ? 'Creating...' : 'Create Trainer'}</button>
             </div>
           </div>
         </div>
@@ -220,8 +272,8 @@ const AdminDashboard = () => {
             
             <Routes>
               <Route path="/" element={<AdminOverview stats={stats} />} />
-              <Route path="/members" element={<MembersTab members={members} />} />
-              <Route path="/trainers" element={<TrainersTab trainers={trainers} />} />
+              <Route path="/members" element={<MembersTab members={members} setMembers={setMembers} />} />
+              <Route path="/trainers" element={<TrainersTab trainers={trainers} setTrainers={setTrainers} />} />
               <Route path="/classes" element={
                 <div className="space-y-8">
                   <ScheduleCalendar />
