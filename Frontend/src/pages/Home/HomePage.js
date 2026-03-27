@@ -1,6 +1,7 @@
 
 import { Link } from 'react-router-dom';
-import { landingFeatures, mockTestimonials, mockSubscriptionPlans } from '../../data/staticData';
+import { landingFeatures, mockSubscriptionPlans } from '../../data/staticData';
+import { trainerService, classService, memberService, reviewService } from '../../services/api';
 import { trainerService, classService } from '../../services/api';
 import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/helpers';
@@ -11,10 +12,14 @@ import Footer from '../../components/Layout/Footer';
 
 const HomePage = () => {
   const [trainers, setTrainers] = useState([]);
+  const [memberCount, setMemberCount] = useState(0);
+  const [testimonials, setTestimonials] = useState([]);
   const [classes, setClasses] = useState([]);
   useEffect(() => {
     trainerService.getAll().then(res => setTrainers(res.data.data.slice(0, 4))).catch(() => {});
     classService.getAll().then(res => setClasses(res.data.data)).catch(() => {});
+    memberService.getAll().then(res => setMemberCount(res.data.data?.length || 0)).catch(() => {});
+    reviewService.getAll().then(res => setTestimonials(res.data.data)).catch(() => {});
   }, []);
 
   return (
@@ -64,9 +69,9 @@ const HomePage = () => {
               {/* Stats */}
               <div className="flex gap-8 mt-12">
                 {[
-                  { value: '245+', label: 'Active Members' },
-                  { value: '12+', label: 'Expert Trainers' },
-                  { value: '24+', label: 'Fitness Classes' },
+                  { value: (memberCount + 10) + '+', label: 'Active Members' },
+                  { value: trainers.length + '+', label: 'Expert Trainers' },
+                  { value: classes.length + '+', label: 'Fitness Classes' },
                 ].map((stat) => (
                   <div key={stat.label}>
                     <p className="text-2xl md:text-3xl font-display font-bold gradient-text">{stat.value}</p>
@@ -276,7 +281,7 @@ const HomePage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {mockTestimonials.map((testimonial) => (
+            {(testimonials.length > 0 ? testimonials : []).map((testimonial) => (
               <div key={testimonial.id} className="glass-card-hover p-8">
                 <div className="flex items-center gap-1 mb-4">
                   {Array.from({ length: 5 }, (_, i) => (
@@ -290,14 +295,14 @@ const HomePage = () => {
                     </svg>
                   ))}
                 </div>
-                <p className="text-dark-300 text-sm leading-relaxed italic">"{testimonial.text}"</p>
+                <p className="text-dark-300 text-sm leading-relaxed italic">"{testimonial.comment}"</p>
                 <div className="flex items-center gap-3 mt-6">
                   <div className="w-10 h-10 overflow-hidden bg-primary-500/20 rounded-full flex items-center justify-center text-xl shrink-0">
-                    <img src={testimonial.avatar} alt={testimonial.name} className="w-full h-full object-cover" />
+                    <img src={testimonial.user?.avatar || '/images/default-avatar.png'} alt={testimonial.user?.name || 'Happy Member'} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <p className="text-white text-sm font-semibold">{testimonial.name}</p>
-                    <p className="text-dark-500 text-xs">{testimonial.role}</p>
+                    <p className="text-white text-sm font-semibold">{testimonial.user?.name || 'Happy Member'}</p>
+                    <p className="text-dark-500 text-xs">{'FitnessDesk Member'}</p>
                   </div>
                 </div>
               </div>
@@ -339,4 +344,5 @@ const HomePage = () => {
 };
 
 export default HomePage;
+
 

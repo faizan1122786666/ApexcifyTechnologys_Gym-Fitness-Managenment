@@ -12,10 +12,26 @@ import PaymentCard from '../../components/Payment/PaymentCard';
 import SubscriptionPlan from '../../components/Payment/SubscriptionPlan';
 import ProfileSettings from '../../pages/Profile/ProfileSettings';
 import { mockWorkoutPlans, mockDietPlans } from '../../data/staticData';
-import { classService, paymentService } from '../../services/api';
+import { classService, paymentService, reviewService } from '../../services/api';
+import { MessageSquarePlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const MemberOverview = ({ stats }) => (
+const MemberOverview = ({ stats }) => {
+  const [feedback, setFeedback] = useState('');
+  const [rating, setRating] = useState(5);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const submitFeedback = async () => {
+    if (!feedback) return;
+    try {
+      await reviewService.createReview({ rating, comment: feedback });
+      setFeedbackSent(true);
+    } catch(err) {
+      alert('Error submitting feedback');
+    }
+  };
+
+  return (
   <>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       <StatsCard title="Workouts This Week" value={stats.workoutsThisWeek} icon="💪" />
@@ -33,8 +49,36 @@ const MemberOverview = ({ stats }) => (
          <DietPlan plan={mockDietPlans[0]} />
       </div>
     </div>
+    
+    {/* Feedback Section */}
+    <div className="glass-card p-6 mt-8">
+      <div className="flex items-center gap-2 mb-4">
+        <MessageSquarePlus className="text-primary-500 w-6 h-6" />
+        <h2 className="text-xl font-bold text-white">Leave Us Feedback!</h2>
+      </div>
+      {feedbackSent ? (
+         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl">Thank you for your feedback! It is now live on the homepage.</div>
+      ) : (
+         <div className="space-y-4 max-w-lg">
+           <div>
+             <label className="text-sm text-dark-300 block mb-1">Rating</label>
+             <select className="input-field max-w-[100px]" value={rating} onChange={e => setRating(Number(e.target.value))}>
+               <option value={5}>5 Stars</option>
+               <option value={4}>4 Stars</option>
+               <option value={3}>3 Stars</option>
+             </select>
+           </div>
+           <div>
+             <label className="text-sm text-dark-300 block mb-1">Your detailed experience</label>
+             <textarea className="input-field min-h-[100px]" placeholder="Tell us how FitnessDesk transformed your journey..." value={feedback} onChange={e => setFeedback(e.target.value)}></textarea>
+           </div>
+           <button onClick={submitFeedback} className="btn-primary">Submit Feedback</button>
+         </div>
+      )}
+    </div>
   </>
-);
+  );
+};
 
 const MemberDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -115,4 +159,5 @@ const MemberDashboard = () => {
 };
 
 export default MemberDashboard;
+
 

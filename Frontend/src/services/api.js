@@ -87,3 +87,8 @@ export const attendanceService = {
 };
 
 export default api;
+
+export const reviewService = {
+  getAll: () => api.get('/testimonials'),
+  createReview: (reviewData) => api.post('/testimonials', reviewData)
+};
