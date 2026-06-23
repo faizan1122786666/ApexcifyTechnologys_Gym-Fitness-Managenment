@@ -5,7 +5,6 @@ import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/helpers';
 import ClassCard from '../../components/ClassScheduling/ClassCard';
 import TrainerCard from '../../components/Trainer/TrainerCard';
-import Navbar from '../../components/Layout/Navbar';
 import Footer from '../../components/Layout/Footer';
 import { useAuth } from '../../context/AuthContext';
 

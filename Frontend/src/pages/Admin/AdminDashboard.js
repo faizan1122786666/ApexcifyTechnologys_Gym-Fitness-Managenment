@@ -13,11 +13,10 @@ import TrainerCard from '../../components/Trainer/TrainerCard';
 import ProfileSettings from '../../pages/Profile/ProfileSettings';
 import Pagination from '../../components/Common/Pagination';
 import UserAvatar from '../../components/Common/UserAvatar';
-import { Plus, X, Search, MoreVertical } from 'lucide-react';
+import { Plus, X, MoreVertical, Eye, EyeOff, UserPlus, Edit, Trash2, Key } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { memberService, trainerService, classService, paymentService } from '../../services/api';
+import { memberService, trainerService, classService, paymentService, authService } from '../../services/api';
 import { toast } from 'react-toastify';
-
 
 // Fallback static data for dashboard stats (can be moved to backend later if API exists)
 const defaultStats = { totalMembers: 0, totalTrainers: 0, monthlyRevenue: 0, newSignups: 0 };
@@ -49,94 +48,136 @@ const AdminOverview = ({ stats }) => (
 const MembersTab = ({ members, setMembers }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: 'member123', plan: 'Basic' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', plan: 'Basic' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const itemsPerPage = 5;
 
   const totalPages = Math.ceil(members.length / itemsPerPage);
   const currentMembers = members.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleCreateMember = async () => {
-    if (!formData.name || !formData.email) return;
+    if (!formData.name || !formData.email || !formData.password) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      // Create new member via api
-      // Note: Default password is 'member123' for manual admin creations
-      const res = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formData.name, email: formData.email, password: formData.password, role: 'member', membership: formData.plan })
+      // Use authService to create new member
+      const response = await authService.signup({ 
+        name: formData.name, 
+        email: formData.email, 
+        password: formData.password, 
+        role: 'member'
       });
-      const data = await res.json();
-      if (data.success || res.status === 201) {
-          setMembers([...members, data.user || data.data || { ...formData, _id: data._id || Date.now().toString(), role: 'member' }]);
-          setShowModal(false);
-          setFormData({ name: '', email: '', password: '', plan: 'Basic' });
-          toast.success('Member created successfully!');
-       } else {
-          toast.error(data.message || 'Failed to create member');
-       }
-    } catch (err) {
-      toast.error('Error connecting to backend.');
+      
+      if (response.data && response.data._id) {
+        const newMember = {
+          _id: response.data._id,
+          name: response.data.name,
+          email: response.data.email,
+          role: response.data.role,
+          joinedAt: response.data.joinedAt || new Date().toISOString()
+        };
+        
+        setMembers([...members, newMember]);
+        setShowModal(false);
+        setFormData({ name: '', email: '', password: '', plan: 'Basic' });
+        toast.success('Member created successfully! 🎉');
+      } else {
+        toast.error('Failed to create member');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to create member';
+      toast.error(errorMessage);
     } finally {
-
       setIsSubmitting(false);
     }
   };
 
   const [editUser, setEditUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const { authService } = await import('../../services/api');
-      const res = await authService.adminUpdateUser(editUser._id, {
+      const updateData = {
         name: editUser.name,
         email: editUser.email,
-        password: editUser.password,
         role: 'member'
-      });
+      };
+      
+      // Only include password if provided
+      if (editUser.password && editUser.password.trim() !== '') {
+        updateData.password = editUser.password;
+      }
+      
+      const res = await authService.adminUpdateUser(editUser._id, updateData);
       if (res.data) {
         setMembers(members.map(m => m._id === editUser._id ? { ...m, ...res.data } : m));
         setIsEditing(false);
         setEditUser(null);
-        toast.success('Member updated successfully!');
+        toast.success('Member updated successfully! ✨');
       }
     } catch (err) {
       toast.error('Failed to update member');
     } finally {
       setIsSubmitting(false);
     }
-
   };
 
+  const handleDeleteMember = async (memberId) => {
+    if (window.confirm('Are you sure you want to delete this member?')) {
+      try {
+        await memberService.delete(memberId);
+        setMembers(members.filter(m => m._id !== memberId));
+        toast.success('Member deleted successfully');
+      } catch (error) {
+        toast.error('Failed to delete member');
+      }
+    }
+  };
 
   return (
     <div className="glass-card p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h2 className="text-xl font-bold text-white">Member Directory</h2>
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <UserPlus className="w-6 h-6" />
+          Member Directory
+        </h2>
         <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2 text-sm !py-2">
           <Plus className="w-4 h-4" /> Add Member
         </button>
       </div>
 
       <div className="space-y-4">
-        {currentMembers.map(m => (
-          <div key={m.id} className="flex justify-between items-center bg-white/5 p-4 rounded-xl hover:bg-white/10 transition-colors">
+        {currentMembers.map(member => (
+          <div key={member._id} className="flex justify-between items-center bg-white/5 p-4 rounded-xl hover:bg-white/10 transition-colors">
             <div className="flex items-center gap-4">
-              <UserAvatar src={m.avatar} name={m.name} size="md" />
+              <UserAvatar src={member.profilePic} name={member.name} size="md" />
               <div>
-                <p className="font-semibold text-white">{m.name}</p>
-                <p className="text-sm text-dark-400">{m.email}</p>
+                <p className="font-semibold text-white">{member.name}</p>
+                <p className="text-sm text-dark-400">{member.email}</p>
+                <p className="text-xs text-dark-500">Joined {new Date(member.joinedAt).toLocaleDateString()}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-               <button onClick={() => { setEditUser({ ...m, password: '' }); setIsEditing(true); }} className="p-2 text-primary-400 hover:text-primary-300 transition-colors">
-                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-               </button>
-               <button className="p-2 text-dark-400 hover:text-white transition-colors"><MoreVertical className="w-5 h-5" /></button>
+              <button 
+                onClick={() => { setEditUser({ ...member, password: '' }); setIsEditing(true); }} 
+                className="p-2 text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 rounded-lg transition-colors"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => handleDeleteMember(member._id)}
+                className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-
           </div>
         ))}
       </div>
@@ -146,126 +187,296 @@ const MembersTab = ({ members, setMembers }) => {
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="glass-card w-full max-w-md p-6 animate-slide-up relative">
-            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X className="w-5 h-5"/></button>
-            <h3 className="text-xl font-bold text-white mb-6">Create New Member</h3>
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white">
+              <X className="w-5 h-5"/>
+            </button>
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <UserPlus className="w-5 h-5" />
+              Create New Member
+            </h3>
             <div className="space-y-4">
-              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" placeholder="John Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" placeholder="john@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Temporary Password</label><input type="password" className="input-field" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Plan</label>
-                <select className="input-field" value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}><option>Basic</option><option>Premium</option><option>Elite</option></select>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Full Name *</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="John Doe" 
+                  value={formData.name} 
+                  onChange={e => setFormData({...formData, name: e.target.value})} 
+                  required
+                />
               </div>
-              <button disabled={isSubmitting} onClick={handleCreateMember} className="btn-primary w-full mt-4">{isSubmitting ? 'Creating...' : 'Create Member'}</button>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Email *</label>
+                <input 
+                  type="email" 
+                  className="input-field" 
+                  placeholder="john@example.com" 
+                  value={formData.email} 
+                  onChange={e => setFormData({...formData, email: e.target.value})} 
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Password *</label>
+                <div className="relative">
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    className="input-field pr-12" 
+                    placeholder="••••••••" 
+                    value={formData.password} 
+                    onChange={e => setFormData({...formData, password: e.target.value})} 
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-primary-400 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Plan</label>
+                <select 
+                  className="input-field" 
+                  value={formData.plan} 
+                  onChange={e => setFormData({...formData, plan: e.target.value})}
+                >
+                  <option>Basic</option>
+                  <option>Premium</option>
+                  <option>Elite</option>
+                </select>
+              </div>
+              <button 
+                disabled={isSubmitting} 
+                onClick={handleCreateMember} 
+                className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Create Member
+                  </>
+                )}
+              </button>
             </div>
-
           </div>
         </div>
       )}
+
       {/* Edit Member Modal */}
       {isEditing && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-card w-full max-w-md p-6 relative">
-            <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X className="w-5 h-5"/></button>
-            <h3 className="text-xl font-bold text-white mb-6">Edit Member / Reset Password</h3>
+            <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white">
+              <X className="w-5 h-5"/>
+            </button>
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              Edit Member / Reset Password
+            </h3>
             <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" value={editUser.name} onChange={e => setEditUser({...editUser, name: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" value={editUser.email} onChange={e => setEditUser({...editUser, email: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">New Password (leave blank to keep current)</label><input type="password" className="input-field" placeholder="••••••••" value={editUser.password} onChange={e => setEditUser({...editUser, password: e.target.value})} /></div>
-              <button disabled={isSubmitting} type="submit" className="btn-primary w-full mt-4">{isSubmitting ? 'Updating...' : 'Update Member'}</button>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Full Name</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={editUser.name} 
+                  onChange={e => setEditUser({...editUser, name: e.target.value})} 
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Email</label>
+                <input 
+                  type="email" 
+                  className="input-field" 
+                  value={editUser.email} 
+                  onChange={e => setEditUser({...editUser, email: e.target.value})} 
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">New Password (leave blank to keep current)</label>
+                <div className="relative">
+                  <input 
+                    type={showEditPassword ? 'text' : 'password'} 
+                    className="input-field pr-12" 
+                    placeholder="••••••••" 
+                    value={editUser.password} 
+                    onChange={e => setEditUser({...editUser, password: e.target.value})} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-primary-400 transition-colors"
+                  >
+                    {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <button 
+                disabled={isSubmitting} 
+                type="submit" 
+                className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Edit className="w-4 h-4" />
+                    Update Member
+                  </>
+                )}
+              </button>
             </form>
           </div>
         </div>
       )}
     </div>
-
   );
 };
 
 const TrainersTab = ({ trainers, setTrainers }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: 'trainer123', specialization: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', specialization: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const itemsPerPage = 4;
 
   const totalPages = Math.ceil(trainers.length / itemsPerPage);
   const currentTrainers = trainers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handleCreateTrainer = async () => {
-    if (!formData.name || !formData.email) return;
+    if (!formData.name || !formData.email || !formData.password) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: formData.name, email: formData.email, password: formData.password, role: 'trainer', specialization: formData.specialization })
+      // Use authService to create new trainer
+      const response = await authService.signup({ 
+        name: formData.name, 
+        email: formData.email, 
+        password: formData.password, 
+        role: 'trainer',
+        specialization: formData.specialization
       });
-      const data = await res.json();
-      if (data.success || res.status === 201) {
-          setTrainers([...trainers, data.user || data.data || { ...formData, _id: data._id || Date.now().toString(), role: 'trainer', rating: 5 }]);
-          setShowModal(false);
-          setFormData({ name: '', email: '', password: '', specialization: '' });
-          toast.success('Trainer created successfully!');
-       } else {
-          toast.error(data.message || 'Failed to create trainer');
-       }
-    } catch (err) {
-      toast.error('Error connecting to backend.');
+      
+      if (response.data && response.data._id) {
+        const newTrainer = {
+          _id: response.data._id,
+          name: response.data.name,
+          email: response.data.email,
+          role: response.data.role,
+          specialization: response.data.specialization || formData.specialization,
+          joinedAt: response.data.joinedAt || new Date().toISOString()
+        };
+        
+        setTrainers([...trainers, newTrainer]);
+        setShowModal(false);
+        setFormData({ name: '', email: '', password: '', specialization: '' });
+        toast.success('Trainer created successfully! 🎉');
+      } else {
+        toast.error('Failed to create trainer');
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to create trainer';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
-
   };
 
   const [editTrainer, setEditTrainer] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const { authService } = await import('../../services/api');
-      const res = await authService.adminUpdateUser(editTrainer._id, {
+      const updateData = {
         name: editTrainer.name,
         email: editTrainer.email,
-        password: editTrainer.password,
         role: 'trainer'
-      });
+      };
+      
+      // Only include password if provided
+      if (editTrainer.password && editTrainer.password.trim() !== '') {
+        updateData.password = editTrainer.password;
+      }
+      
+      const res = await authService.adminUpdateUser(editTrainer._id, updateData);
       if (res.data) {
         setTrainers(trainers.map(t => t._id === editTrainer._id ? { ...t, ...res.data } : t));
         setIsEditing(false);
         setEditTrainer(null);
-        toast.success('Trainer updated successfully!');
+        toast.success('Trainer updated successfully! ✨');
       }
     } catch (err) {
       toast.error('Failed to update trainer');
     } finally {
       setIsSubmitting(false);
     }
-
   };
 
+  const handleDeleteTrainer = async (trainerId) => {
+    if (window.confirm('Are you sure you want to delete this trainer?')) {
+      try {
+        await trainerService.delete(trainerId);
+        setTrainers(trainers.filter(t => t._id !== trainerId));
+        toast.success('Trainer deleted successfully');
+      } catch (error) {
+        toast.error('Failed to delete trainer');
+      }
+    }
+  };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-white">Our Trainers</h2>
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <UserPlus className="w-6 h-6" />
+          Our Trainers
+        </h2>
         <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2 text-sm !py-2">
           <Plus className="w-4 h-4" /> Add Trainer
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-        {currentTrainers.map(t => (
-          <div key={t._id} className="relative group">
-             <TrainerCard trainer={t} />
-             <button 
-               onClick={() => { setEditTrainer({ ...t, password: '' }); setIsEditing(true); }}
-               className="absolute top-2 right-2 p-2 bg-dark-900/80 rounded-full text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-primary-500 hover:text-white"
-             >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-             </button>
+        {currentTrainers.map(trainer => (
+          <div key={trainer._id} className="relative group">
+            <TrainerCard trainer={trainer} />
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+              <button 
+                onClick={() => { setEditTrainer({ ...trainer, password: '' }); setIsEditing(true); }}
+                className="p-2 bg-dark-900/80 rounded-full text-primary-400 hover:bg-primary-500 hover:text-white transition-all duration-200 z-10"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => handleDeleteTrainer(trainer._id)}
+                className="p-2 bg-dark-900/80 rounded-full text-red-400 hover:bg-red-500 hover:text-white transition-all duration-200 z-10"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         ))}
-
       </div>
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
 
@@ -273,36 +484,161 @@ const TrainersTab = ({ trainers, setTrainers }) => {
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="glass-card w-full max-w-md p-6 animate-slide-up relative">
-            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X className="w-5 h-5"/></button>
-            <h3 className="text-xl font-bold text-white mb-6">Create New Trainer</h3>
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white">
+              <X className="w-5 h-5"/>
+            </button>
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <UserPlus className="w-5 h-5" />
+              Create New Trainer
+            </h3>
             <div className="space-y-4">
-              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" placeholder="Jane Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" placeholder="jane@fitnessdesk.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Initial Password</label><input type="password" className="input-field" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Specialization</label><input type="text" className="input-field" placeholder="e.g. Yoga & Pilates" value={formData.specialization} onChange={e => setFormData({...formData, specialization: e.target.value})} /></div>
-
-              <button disabled={isSubmitting} onClick={handleCreateTrainer} className="btn-primary w-full mt-4">{isSubmitting ? 'Creating...' : 'Create Trainer'}</button>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Full Name *</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="Jane Doe" 
+                  value={formData.name} 
+                  onChange={e => setFormData({...formData, name: e.target.value})} 
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Email *</label>
+                <input 
+                  type="email" 
+                  className="input-field" 
+                  placeholder="jane@fitnessdesk.com" 
+                  value={formData.email} 
+                  onChange={e => setFormData({...formData, email: e.target.value})} 
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Password *</label>
+                <div className="relative">
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    className="input-field pr-12" 
+                    placeholder="••••••••" 
+                    value={formData.password} 
+                    onChange={e => setFormData({...formData, password: e.target.value})} 
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-primary-400 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Specialization</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="e.g. Yoga & Pilates" 
+                  value={formData.specialization} 
+                  onChange={e => setFormData({...formData, specialization: e.target.value})} 
+                />
+              </div>
+              <button 
+                disabled={isSubmitting} 
+                onClick={handleCreateTrainer} 
+                className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Create Trainer
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
+
       {/* Edit Trainer Modal */}
       {isEditing && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-card w-full max-w-md p-6 relative">
-            <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X className="w-5 h-5"/></button>
-            <h3 className="text-xl font-bold text-white mb-6">Edit Trainer / Reset Password</h3>
+            <button onClick={() => setIsEditing(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white">
+              <X className="w-5 h-5"/>
+            </button>
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              Edit Trainer / Reset Password
+            </h3>
             <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div><label className="text-sm text-dark-300 block mb-1">Full Name</label><input type="text" className="input-field" value={editTrainer.name} onChange={e => setEditTrainer({...editTrainer, name: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">Email</label><input type="email" className="input-field" value={editTrainer.email} onChange={e => setEditTrainer({...editTrainer, email: e.target.value})} /></div>
-              <div><label className="text-sm text-dark-300 block mb-1">New Password (leave blank to keep current)</label><input type="password" className="input-field" placeholder="••••••••" value={editTrainer.password} onChange={e => setEditTrainer({...editTrainer, password: e.target.value})} /></div>
-              <button disabled={isSubmitting} type="submit" className="btn-primary w-full mt-4">{isSubmitting ? 'Updating...' : 'Update Trainer'}</button>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Full Name</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  value={editTrainer.name} 
+                  onChange={e => setEditTrainer({...editTrainer, name: e.target.value})} 
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">Email</label>
+                <input 
+                  type="email" 
+                  className="input-field" 
+                  value={editTrainer.email} 
+                  onChange={e => setEditTrainer({...editTrainer, email: e.target.value})} 
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-dark-300 block mb-1">New Password (leave blank to keep current)</label>
+                <div className="relative">
+                  <input 
+                    type={showEditPassword ? 'text' : 'password'} 
+                    className="input-field pr-12" 
+                    placeholder="••••••••" 
+                    value={editTrainer.password} 
+                    onChange={e => setEditTrainer({...editTrainer, password: e.target.value})} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-400 hover:text-primary-400 transition-colors"
+                  >
+                    {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <button 
+                disabled={isSubmitting} 
+                type="submit" 
+                className="btn-primary w-full mt-4 flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Edit className="w-4 h-4" />
+                    Update Trainer
+                  </>
+                )}
+              </button>
             </form>
           </div>
         </div>
       )}
     </div>
-
   );
 };
 
@@ -322,7 +658,7 @@ const ClassesTab = ({ classes, trainers, setClasses }) => {
 
   const handleCreateClass = async () => {
     if (!formData.className || !formData.trainer || !formData.description) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
     setIsSubmitting(true);
@@ -332,20 +668,21 @@ const ClassesTab = ({ classes, trainers, setClasses }) => {
         setClasses([...classes, res.data]);
         setShowModal(false);
         setFormData({ className: '', description: '', trainer: '', day: 'Monday', time: '09:00', capacity: 20, price: 0, image: '' });
-        toast.success('Class scheduled successfully!');
+        toast.success('Class scheduled successfully! 🎉');
       }
     } catch (err) {
       toast.error('Failed to create class. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
-
   };
 
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center bg-dark-900 shadow-xl p-4 rounded-xl border border-white/5">
-         <h2 className="text-xl font-bold text-white uppercase tracking-wider">Class Schedule & Management</h2>
+         <h2 className="text-xl font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          📅 Class Schedule & Management
+         </h2>
          <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2 !py-2 shadow-glow">
             <Plus className="w-4 h-4" /> Add New Class
          </button>
@@ -353,7 +690,9 @@ const ClassesTab = ({ classes, trainers, setClasses }) => {
 
       <ScheduleCalendar />
       
-      <h2 className="text-xl font-bold text-white mb-6">Active Classes Directory</h2>
+      <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+        📚 Active Classes Directory
+      </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {classes.length > 0 ? (
           classes.map(c => <ClassCard key={c.id || c._id} classData={c} />)
@@ -368,29 +707,48 @@ const ClassesTab = ({ classes, trainers, setClasses }) => {
       {showModal && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex justify-center items-start p-4 animate-fade-in overflow-y-auto pt-20 pb-10">
           <div className="glass-card w-full max-w-2xl p-6 md:p-8 animate-slide-up relative">
-
             <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-dark-400 hover:text-white transition-colors">
               <X className="w-6 h-6"/>
             </button>
             
             <div className="mb-6">
-              <h3 className="text-2xl font-display font-bold text-white mb-1">Create New Class</h3>
+              <h3 className="text-2xl font-display font-bold text-white mb-1 flex items-center gap-2">
+                📚 Create New Class
+              </h3>
               <p className="text-dark-400 text-sm">Fill in the details below to schedule a new gym session.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="text-sm font-semibold text-dark-300 block mb-2">Class Name</label>
-                <input type="text" className="input-field" placeholder="e.g. Advanced CrossFit" value={formData.className} onChange={e => setFormData({...formData, className: e.target.value})} />
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Class Name *</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="e.g. Advanced CrossFit" 
+                  value={formData.className} 
+                  onChange={e => setFormData({...formData, className: e.target.value})} 
+                  required
+                />
               </div>
               <div className="md:col-span-2">
-                <label className="text-sm font-semibold text-dark-300 block mb-2">Detailed Description</label>
-                <textarea className="input-field min-h-[80px]" placeholder="What will members learn in this class?" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Detailed Description *</label>
+                <textarea 
+                  className="input-field min-h-[80px]" 
+                  placeholder="What will members learn in this class?" 
+                  value={formData.description} 
+                  onChange={e => setFormData({...formData, description: e.target.value})}
+                  required
+                />
               </div>
               
               <div>
-                <label className="text-sm font-semibold text-dark-300 block mb-2">Assign Trainer</label>
-                <select className="input-field" value={formData.trainer} onChange={e => setFormData({...formData, trainer: e.target.value})}>
+                <label className="text-sm font-semibold text-dark-300 block mb-2">Assign Trainer *</label>
+                <select 
+                  className="input-field" 
+                  value={formData.trainer} 
+                  onChange={e => setFormData({...formData, trainer: e.target.value})}
+                  required
+                >
                   <option value="">Select a Trainer</option>
                   {trainers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                 </select>
@@ -398,36 +756,80 @@ const ClassesTab = ({ classes, trainers, setClasses }) => {
               
               <div>
                 <label className="text-sm font-semibold text-dark-300 block mb-2">Day of Week</label>
-                <select className="input-field" value={formData.day} onChange={e => setFormData({...formData, day: e.target.value})}>
+                <select 
+                  className="input-field" 
+                  value={formData.day} 
+                  onChange={e => setFormData({...formData, day: e.target.value})}
+                >
                   {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d}>{d}</option>)}
                 </select>
               </div>
 
               <div>
                 <label className="text-sm font-semibold text-dark-300 block mb-2">Start Time</label>
-                <input type="time" className="input-field" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} />
+                <input 
+                  type="time" 
+                  className="input-field" 
+                  value={formData.time} 
+                  onChange={e => setFormData({...formData, time: e.target.value})} 
+                />
               </div>
 
               <div>
                 <label className="text-sm font-semibold text-dark-300 block mb-2">Class Capacity</label>
-                <input type="number" className="input-field" value={formData.capacity} onChange={e => setFormData({...formData, capacity: Number(e.target.value)})} />
+                <input 
+                  type="number" 
+                  className="input-field" 
+                  value={formData.capacity} 
+                  onChange={e => setFormData({...formData, capacity: Number(e.target.value)})} 
+                  min="1"
+                />
               </div>
 
               <div>
                 <label className="text-sm font-semibold text-dark-300 block mb-2">Session Price ($)</label>
-                <input type="number" className="input-field" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} />
+                <input 
+                  type="number" 
+                  className="input-field" 
+                  value={formData.price} 
+                  onChange={e => setFormData({...formData, price: Number(e.target.value)})} 
+                  min="0"
+                  step="0.01"
+                />
               </div>
 
               <div>
                 <label className="text-sm font-semibold text-dark-300 block mb-2">Image URL (Optional)</label>
-                <input type="text" className="input-field" placeholder="https://..." value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} />
+                <input 
+                  type="url" 
+                  className="input-field" 
+                  placeholder="https://..." 
+                  value={formData.image} 
+                  onChange={e => setFormData({...formData, image: e.target.value})} 
+                />
               </div>
             </div>
 
             <div className="mt-8 flex gap-4">
-              <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
-              <button disabled={isSubmitting} onClick={handleCreateClass} className="btn-primary flex-1 shadow-glow">
-                {isSubmitting ? 'Creating...' : 'Create Class'}
+              <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">
+                Cancel
+              </button>
+              <button 
+                disabled={isSubmitting} 
+                onClick={handleCreateClass} 
+                className="btn-primary flex-1 shadow-glow flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Create Class
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -477,6 +879,7 @@ const AdminDashboard = () => {
         });
       } catch (error) {
         console.error("Failed to fetch admin data", error);
+        toast.error('Failed to load dashboard data');
       } finally {
         setIsLoading(false);
       }
@@ -493,7 +896,17 @@ const AdminDashboard = () => {
   }
 
   if (isLoading) {
-    return <div className="min-h-screen bg-dark-950 flex items-center justify-center text-primary-500 font-bold text-xl uppercase tracking-widest animate-pulse">Loading FitnessDesk Admin...</div>;
+    return (
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-primary-500/30 border-t-primary-400 rounded-full animate-spin"></div>
+            <div className="absolute inset-0 w-16 h-16 border-4 border-accent-emerald/30 border-t-accent-emerald rounded-full animate-spin" style={{animationDirection: 'reverse'}}></div>
+          </div>
+          <p className="text-primary-500 font-bold text-xl uppercase tracking-widest animate-pulse mt-4">Loading FitnessDesk Admin...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -545,6 +958,5 @@ const AdminDashboard = () => {
     </div>
   );
 };
-
 
 export default AdminDashboard;

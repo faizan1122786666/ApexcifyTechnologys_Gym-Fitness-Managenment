@@ -28,7 +28,7 @@ const CheckoutForm = ({ plan, onCancel, onSuccess }) => {
       const cardElement = elements.getElement(CardElement);
 
       // In a real app we'd call our backend to create a PaymentIntent and pass the secret here
-      const { error: paymentMethodError, paymentMethod } = await stripe.createPaymentMethod({
+      const { error: paymentMethodError } = await stripe.createPaymentMethod({
         type: 'card',
         card: cardElement,
       });

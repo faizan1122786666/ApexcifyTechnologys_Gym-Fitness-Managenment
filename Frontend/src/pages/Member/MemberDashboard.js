@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Navbar from '../../components/Layout/Navbar';
 import Sidebar from '../../components/Layout/Sidebar';
 import StatsCard from '../../components/Dashboard/StatsCard';
@@ -82,8 +82,7 @@ const MemberOverview = ({ stats }) => {
 
 const MemberDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, isMember } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     workoutsThisWeek: 4,
     caloriesBurned: 1850,

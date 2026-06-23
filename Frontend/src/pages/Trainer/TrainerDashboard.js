@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Navbar from '../../components/Layout/Navbar';
 import Sidebar from '../../components/Layout/Sidebar';
 import StatsCard from '../../components/Dashboard/StatsCard';
@@ -9,7 +9,7 @@ import WorkoutPlan from '../../components/Workout/WorkoutPlan';
 import DietPlan from '../../components/Workout/DietPlan';
 import ProfileSettings from '../../pages/Profile/ProfileSettings';
 import { mockWorkoutPlans, mockDietPlans } from '../../data/staticData';
-import { classService, memberService, trainerService } from '../../services/api';
+import { classService, trainerService } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import UserAvatar from '../../components/Common/UserAvatar';
 
@@ -47,8 +47,7 @@ const TrainerOverview = ({ stats }) => (
 
 const TrainerDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, isTrainer } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState({ assignedMembers: 0, classesToday: 0, activeClasses: 0 });
 
   const [myClasses, setMyClasses] = useState([]);

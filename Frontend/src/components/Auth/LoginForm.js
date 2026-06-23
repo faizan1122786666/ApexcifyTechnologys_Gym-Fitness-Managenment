@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
-
+import { Eye, EyeOff, Mail, Lock, User, ChevronRight, Sparkles, Zap } from 'lucide-react';
 
 const LoginForm = () => {
   const [email, setEmail] = useState('');
@@ -10,16 +10,19 @@ const LoginForm = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
+  
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  React.useEffect(() => {
+  // Redirect if already authenticated
+  useEffect(() => {
     if (isAuthenticated && user) {
       const role = user.role;
       navigate(role === 'admin' ? '/admin' : role === 'trainer' ? '/trainer' : '/member');
     }
   }, [isAuthenticated, user, navigate]);
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,9 +32,19 @@ const LoginForm = () => {
     try {
       const result = await login(email, password);
       if (result.success) {
-        toast.success(`Welcome back, ${result.user.name}!`);
+        toast.success(`Welcome back, ${result.user.name}! 🎉`);
+        
+        // Add remember me functionality
+        if (rememberMe) {
+          localStorage.setItem('fitnessDesk_rememberMe', 'true');
+        } else {
+          localStorage.removeItem('fitnessDesk_rememberMe');
+        }
+        
         const role = result.user.role;
-        navigate(role === 'admin' ? '/admin' : role === 'trainer' ? '/trainer' : '/member');
+        setTimeout(() => {
+          navigate(role === 'admin' ? '/admin' : role === 'trainer' ? '/trainer' : '/member');
+        }, 1000);
       } else {
         toast.error(result.error);
         setError(result.error);
@@ -40,129 +53,255 @@ const LoginForm = () => {
       toast.error('An unexpected error occurred. Please try again.');
       setError('An unexpected error occurred. Please try again.');
     } finally {
-
       setIsLoading(false);
     }
   };
 
+  const handleDemoLogin = (demoEmail, demoPassword) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setDemoMode(true);
+  };
 
   const demoAccounts = [
-    { role: 'Admin', email: 'admin@fitnessdesk.com', password: 'admin123', icon: '👨‍💼', color: 'from-amber-500 to-yellow-600' },
-    { role: 'Trainer', email: 'sarah@fitnessdesk.com', password: 'trainer123', icon: '🏋️‍♀️', color: 'from-blue-500 to-cyan-600' },
-    { role: 'Member', email: 'john@gmail.com', password: 'member123', icon: '🧑', color: 'from-emerald-500 to-teal-600' },
+    { 
+      role: 'Admin', 
+      email: 'admin@fitnessdesk.com', 
+      password: 'admin123', 
+      icon: '👨‍💼', 
+      color: 'from-amber-500 to-yellow-600',
+      description: 'Full system control'
+    },
+    { 
+      role: 'Trainer', 
+      email: 'sarah@fitnessdesk.com', 
+      password: 'trainer123', 
+      icon: '🏋️‍♀️', 
+      color: 'from-blue-500 to-cyan-600',
+      description: 'Manage classes & members'
+    },
+    { 
+      role: 'Member', 
+      email: 'john@gmail.com', 
+      password: 'member123', 
+      icon: '🧑', 
+      color: 'from-emerald-500 to-teal-600',
+      description: 'Track workouts & progress'
+    },
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-950 px-4 pt-20">
-      {/* Background Effects */}
+    <div className="min-h-screen flex items-center justify-center px-4 pt-20 relative overflow-hidden">
+      {/* Enhanced Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-accent-emerald/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-gradient-to-br from-primary-500/20 to-transparent rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-gradient-to-br from-accent-emerald/20 to-transparent rounded-full blur-3xl animate-float" style={{animationDelay: '3s'}}></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-br from-primary-500/5 to-transparent rounded-full blur-3xl animate-pulse"></div>
+      </div>
+
+      {/* Animated particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-2 h-2 bg-primary-400/30 rounded-full animate-float"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 6}s`,
+              animationDuration: `${3 + Math.random() * 4}s`,
+            }}
+          />
+        ))}
       </div>
 
       <div className="w-full max-w-md relative z-10 animate-fade-in">
-        {/* Header */}
-        <div className="text-center mb-8">
+        {/* Enhanced Header */}
+        <div className="text-center mb-8 animate-slide-up">
           <Link to="/" className="inline-flex items-center gap-3 mb-6 group">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300 overflow-hidden bg-white/5 shadow-glow">
-              <img src="/images/logo.png" alt="FitnessDesk Logo" className="w-full h-full object-cover" />
+            <div className="w-16 h-16 rounded-full flex items-center justify-center transform group-hover:scale-110 transition-all duration-300 overflow-hidden bg-gradient-to-br from-primary-500/20 to-accent-emerald/20 backdrop-blur-sm border border-white/10 shadow-glow">
+              <div className="relative">
+                <img src="/images/logo.png" alt="FitnessDesk Logo" className="w-10 h-10 object-cover rounded-full" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-primary-400 to-accent-emerald rounded-full animate-pulse"></div>
+              </div>
             </div>
-            <span className="text-2xl font-display font-bold text-white tracking-wide">
+            <span className="text-3xl font-display font-bold text-white tracking-wide">
               Fitness<span className="gradient-text">Desk</span>
             </span>
           </Link>
 
-          <h1 className="text-3xl font-display font-bold text-white">Welcome Back</h1>
-          <p className="text-dark-400 mt-2">Sign in to your FitnessDesk account</p>
+          <h1 className="text-4xl font-display font-bold text-white mb-3 bg-gradient-to-r from-white to-primary-300 bg-clip-text text-transparent">
+            Welcome Back
+          </h1>
+          <p className="text-dark-400 text-lg">Sign in to your FitnessDesk account</p>
         </div>
 
-        {/* Login Form */}
-        <div className="glass-card p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Enhanced Login Form */}
+        <div className="glass-card p-8 animate-slide-up" style={{animationDelay: '0.2s'}}>
+          <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-sm text-center animate-slide-up">
-                {error}
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm text-center animate-slide-up backdrop-blur-sm">
+                <div className="flex items-center justify-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  {error}
+                </div>
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">Email Address</label>
+            {/* Email Input */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-dark-300 flex items-center gap-2">
+                <Mail className="w-4 h-4 text-primary-400" />
+                Email Address
+              </label>
               <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="input-field pl-10"
+                  className="input-field pl-12 focus:shadow-glow transition-all duration-300"
                   placeholder="you@example.com"
                   required
+                  disabled={isLoading}
                 />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500 transition-colors duration-300" />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-dark-300 mb-2">Password</label>
+            {/* Password Input */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-dark-300 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-primary-400" />
+                Password
+              </label>
               <div className="relative">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input-field pl-10 pr-10"
+                  className="input-field pl-12 pr-12 focus:shadow-glow transition-all duration-300"
                   placeholder="••••••••"
                   required
+                  disabled={isLoading}
                 />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500 transition-colors duration-300" />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300 transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-primary-400 transition-all duration-300"
+                  disabled={isLoading}
                 >
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
             </div>
 
+            {/* Remember Me & Forgot Password */}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 text-primary-500 bg-dark-900/60 border-white/20 rounded focus:ring-primary-500 focus:ring-2"
+                  disabled={isLoading}
+                />
+                <span className="text-sm text-dark-400 group-hover:text-white transition-colors duration-200">
+                  Remember me
+                </span>
+              </label>
+              <Link 
+                to="/forgot-password" 
+                className="text-sm text-primary-400 hover:text-primary-300 transition-colors duration-200"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full flex items-center justify-center gap-2 relative overflow-hidden"
             >
               {isLoading ? (
                 <>
-                  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   Signing in...
                 </>
               ) : (
-                'Sign In'
+                <>
+                  Sign In
+                  <ChevronRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" />
+                </>
               )}
             </button>
           </form>
 
-          <p className="text-center text-dark-400 text-sm mt-6">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-primary-400 hover:text-primary-300 font-medium transition-colors">
-              Sign Up
-            </Link>
-          </p>
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-transparent text-dark-400">Or continue with</span>
+            </div>
+          </div>
+
+          {/* Demo Accounts */}
+          <div className="space-y-3">
+            <p className="text-center text-sm text-dark-400 flex items-center justify-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary-400" />
+              Try demo accounts
+              <Sparkles className="w-4 h-4 text-primary-400" />
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              {demoAccounts.map((account, index) => (
+                <button
+                  key={account.role}
+                  type="button"
+                  onClick={() => handleDemoLogin(account.email, account.password)}
+                  className={`p-3 rounded-xl border border-white/10 bg-gradient-to-r ${account.color} text-white font-medium transition-all duration-300 hover:scale-105 hover:shadow-glow relative overflow-hidden group`}
+                  style={{animationDelay: `${index * 0.1}s`}}
+                  disabled={isLoading}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{account.icon}</span>
+                      <div className="text-left">
+                        <div className="font-semibold">{account.role}</div>
+                        <div className="text-xs opacity-80">{account.description}</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+                  </div>
+                  {demoMode && email === account.email && (
+                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sign Up Link */}
+          <div className="text-center mt-6">
+            <p className="text-dark-400">
+              Don't have an account?{' '}
+              <Link 
+                to="/signup" 
+                className="text-primary-400 hover:text-primary-300 font-medium transition-colors duration-200"
+              >
+                Sign up for free
+              </Link>
+            </p>
+          </div>
         </div>
 
-
+        {/* Enhanced Footer */}
+        <div className="text-center mt-8 text-xs text-dark-500 animate-fade-in" style={{animationDelay: '0.4s'}}>
+          <p>By signing in, you agree to our Terms of Service and Privacy Policy</p>
+          <p className="mt-1">© 2024 FitnessDesk. All rights reserved.</p>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import React from 'react';
 import UserAvatar from '../Common/UserAvatar';
-import { Star } from 'lucide-react';
 
 const TrainerCard = ({ trainer, onEnroll }) => {
   return (
